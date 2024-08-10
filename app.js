@@ -10,14 +10,14 @@ app.use(express.json());
 app.use(cors());
 
 // Import routes
-const authRoutes = require('./routes/authRoutes');
-const productRoutes = require('./routes/productRoutes');
-const auctionRoutes = require('./routes/auctionRoutes');
+const authRoute = require('./routes/authRoute');
+const productRoute = require('./routes/productRoute');
+const auctionRoute = require('./routes/auctionRoute');
 
 // Use routes
-app.use('/api/auth', authRoutes);
-app.use('/api/products', productRoutes);
-app.use('/api/auctions', auctionRoutes);
+app.use('/api/auth', authRoute);
+app.use('/api/products', productRoute);
+app.use('/api/auctions', auctionRoute);
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
