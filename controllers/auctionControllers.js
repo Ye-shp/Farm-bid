@@ -1,4 +1,4 @@
-const Auction = require('../models/Auction');
+const Auctions = require('../models/Auctions');
 
 exports.createAuction = async (req, res) => {
   const { productId } = req.body;
