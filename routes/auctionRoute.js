@@ -1,6 +1,6 @@
 const express = require('express');
 const authMiddleware = require('../middleware/authMiddleware'); // Ensure only authenticated users can create auctions
-const { createAuction, getFarmerAuctions, getAuctions } = require('../controllers/AuctionController'); // Import controllers
+const { createAuction, getFarmerAuctions, getAuctions } = require('../controllers/auctionControllers'); // Import controllers
 
 const router = express.Router();
 
