@@ -1,4 +1,3 @@
-// Import required modules
 const User = require('../models/User'); // Correctly reference the User model
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -21,8 +20,11 @@ exports.register = async (req, res) => {
     // Save the new user in the database
     await newUser.save();
 
-    // Respond with a success message
-    res.status(201).json({ message: 'User registered successfully' });
+    // Respond with the user's details and success message
+    res.status(201).json({ 
+      message: 'User registered successfully', 
+      user: { id: newUser._id, email: newUser.email, role: newUser.role } 
+    });
   } catch (err) {
     // Handle any errors during registration
     res.status(500).json({ error: err.message });
@@ -45,8 +47,11 @@ exports.login = async (req, res) => {
     // Generate a JWT token for authentication
     const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
-    // Respond with the token and user role
-    res.json({ token, role: user.role });
+    // Respond with the token, user role, and email
+    res.json({ 
+      token, 
+      user: { id: user._id, email: user.email, role: user.role } 
+    });
   } catch (err) {
     // Handle any errors during login
     res.status(500).json({ error: err.message });
@@ -58,7 +63,7 @@ exports.getUserRole = async (req, res) => {
   try {
     // Fetch the user by their ID
     const user = await User.findById(req.user.id);
-    res.json({ role: user.role });
+    res.json({ role: user.role, email: user.email });
   } catch (err) {
     // Handle any errors in fetching user role
     res.status(500).json({ error: err.message });

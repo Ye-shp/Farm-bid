@@ -1,11 +1,16 @@
 const express = require('express');
-const { createAuction, getFarmerAuctions, getAuctions } = require('../controllers/auctionControllers');
-const authMiddleware = require('../middleware/authMiddleware');
+const authMiddleware = require('../middleware/authMiddleware'); // Ensure only authenticated users can create auctions
+const { createAuction, getFarmerAuctions, getAuctions } = require('../controllers/AuctionController'); // Import controllers
 
 const router = express.Router();
 
-router.post('/', authMiddleware, createAuction);
+// Route to create a new auction
+router.post('/create', authMiddleware, createAuction);
+
+// Route to get auctions created by the logged-in farmer
 router.get('/farmer-auctions', authMiddleware, getFarmerAuctions);
-router.get('/', getAuctions);
+
+// Route to get all auctions (e.g., for buyers)
+router.get('/all-auctions', authMiddleware, getAuctions);
 
 module.exports = router;
