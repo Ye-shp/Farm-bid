@@ -18,16 +18,18 @@ exports.register = async (req, res) => {
     const newUser = new User({ email, password: hashedPassword, role });
 
     // Save the new user in the database
-    await newUser.save();
-
-    // Respond with the user's details and success message
-    res.status(201).json({ 
-      message: 'User registered successfully', 
-      user: { id: newUser._id, email: newUser.email, role: newUser.role } 
-    });
+    try {
+      await newUser.save();
+      // Respond with the user's details and success message
+      return res.status(201).json({ 
+        message: 'User registered successfully', 
+        user: { id: newUser._id, email: newUser.email, role: newUser.role } 
+      });
+    } catch (error) {
+      return res.status(500).json({ message: 'Error saving new user' });
+    }
   } catch (err) {
-    // Handle any errors during registration
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 };
 
@@ -48,13 +50,12 @@ exports.login = async (req, res) => {
     const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
     // Respond with the token, user role, and email
-    res.json({ 
+    return res.json({ 
       token, 
       user: { id: user._id, email: user.email, role: user.role } 
     });
   } catch (err) {
-    // Handle any errors during login
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 };
 
@@ -63,9 +64,8 @@ exports.getUserRole = async (req, res) => {
   try {
     // Fetch the user by their ID
     const user = await User.findById(req.user.id);
-    res.json({ role: user.role, email: user.email });
+    return res.json({ role: user.role, email: user.email });
   } catch (err) {
-    // Handle any errors in fetching user role
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 };
