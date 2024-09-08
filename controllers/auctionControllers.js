@@ -1,33 +1,39 @@
-const Auction = require('../models/Auctions'); // Ensure the correct model name is used
+const Auction = require('../models/Auctions');
+const Product = require('../models/Product'); // Ensure the product model is used
 
 // Create a new auction
 exports.createAuction = async (req, res) => {
-  const { productId, startingBid } = req.body; // Include the startingBid in the request body
-  
+  const { productId, startingBid } = req.body;
+
   try {
-    // Create a new auction with the associated product ID and starting bid
+    // Check if the product exists and belongs to the logged-in farmer
+    const product = await Product.findById(productId);
+    if (!product || product.user.toString() !== req.user.id) {
+      return res.status(404).json({ message: 'Product not found or you are not authorized to auction this product' });
+    }
+
+    // Create a new auction for the product
     const newAuction = new Auction({
       product: productId,
-      bids: [{ amount: startingBid, user: req.user.id }] // Assuming the first bid is made by the farmer themselves
+      startingBid,
+      bids: [] // Start without bids; bids will be added later by buyers
     });
-    await newAuction.save();
 
-    // Respond with the newly created auction
+    await newAuction.save();
     res.status(201).json(newAuction);
+
   } catch (err) {
-    // Handle any errors during auction creation
+    // Handle errors during auction creation
     res.status(500).json({ error: err.message });
   }
 };
 
-// Get auctions for the logged-in farmer
+// Get auctions created by the logged-in farmer
 exports.getFarmerAuctions = async (req, res) => {
   try {
-    // Find auctions where the product's user matches the logged-in farmer
     const auctions = await Auction.find({ 'product.user': req.user.id }).populate('product');
     res.json(auctions);
   } catch (err) {
-    // Handle any errors in fetching farmer auctions
     res.status(500).json({ error: err.message });
   }
 };
@@ -35,11 +41,9 @@ exports.getFarmerAuctions = async (req, res) => {
 // Get all auctions (for buyers)
 exports.getAuctions = async (req, res) => {
   try {
-    // Find all auctions and populate the associated product details
     const auctions = await Auction.find().populate('product');
     res.json(auctions);
   } catch (err) {
-    // Handle any errors in fetching all auctions
     res.status(500).json({ error: err.message });
   }
 };
