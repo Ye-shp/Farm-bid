@@ -1,14 +1,26 @@
-// controllers/blogController.js
+const Blog = require('../models/Blog');
 
-const BlogPost = require('../models/BlogPost');
+// Create a new blog post
+exports.createBlog = async (req, res) => {
+  const { title, content } = req.body;
+  const role = req.user.role; // Use role from the authenticated user
+
+  try {
+    const newBlog = new Blog({ title, content, role });
+    await newBlog.save();
+    res.status(201).json(newBlog);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
 
 // Get all blog posts
-exports.getAllBlogs = async (req, res) => {
+exports.getBlogs = async (req, res) => {
   try {
-    const blogs = await Blog.find().sort({ createdAt: -1 });
+    const blogs = await Blog.find();
     res.json(blogs);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 };
 
@@ -16,24 +28,22 @@ exports.getAllBlogs = async (req, res) => {
 exports.getBlogById = async (req, res) => {
   try {
     const blog = await Blog.findById(req.params.id);
-    if (!blog) return res.status(404).json({ message: 'Blog not found' });
     res.json(blog);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 };
 
-// Create a new blog post
-exports.createBlog = async (req, res) => {
-  const blog = new Blog({
-    title: req.body.title,
-    content: req.body.content,
-  });
-
+// Post a comment on a blog
+exports.postComment = async (req, res) => {
+  const { text } = req.body;
+  
   try {
-    const newBlog = await blog.save();
-    res.status(201).json(newBlog);
-  } catch (err) {
-    res.status(400).json({ message: err.message });
+    const blog = await Blog.findById(req.params.id);
+    blog.comments.push({ text });
+    await blog.save();
+    res.status(201).json(blog);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 };
