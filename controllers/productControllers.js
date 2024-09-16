@@ -1,23 +1,48 @@
+const AWS = require('aws-sdk');
 const Product = require('../models/Product');
+const multer = require('multer');
+const multerS3 = require('multer-s3');
 
-exports.createProduct = async (req, res) => {
-  console.log("Incoming product creation request:", req.body);
-  const { title, description } = req.body;
+// Configure AWS SDK
+AWS.config.update({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  region: process.env.AWS_REGION,
+});
 
-  try {
-    const newProduct = new Product({ title, description, user: req.user.id });
-    await newProduct.save();
-    res.status(201).json(newProduct);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
+const s3 = new AWS.S3();
 
-exports.getFarmerProducts = async (req, res) => {
-  try {
-    const products = await Product.find({ user: req.user.id });
-    res.json(products);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
+// Multer setup to upload directly to S3
+const upload = multer({
+  storage: multerS3({
+    s3: s3,
+    bucket: process.env.AWS_BUCKET_NAME,
+    acl: 'public-read', // Set permissions
+    key: function (req, file, cb) {
+      cb(null, Date.now().toString() + file.originalname); // unique filename
+    },
+  }),
+});
+
+// Create a new product with image
+exports.createProduct = [
+  upload.single('image'), // Use multer to handle the file upload
+  async (req, res) => {
+    const { title, description } = req.body;
+    const imageUrl = req.file.location; // S3 URL
+
+    try {
+      const newProduct = new Product({
+        title,
+        description,
+        imageUrl, // Save image URL
+        user: req.user.id,
+      });
+
+      await newProduct.save();
+      res.status(201).json(newProduct);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+];
