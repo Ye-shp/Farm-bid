@@ -13,11 +13,13 @@ app.use(cors());
 const authRoute = require('./routes/authRoute');
 const productRoute = require('./routes/productRoute');
 const auctionRoute = require('./routes/auctionRoute');
+const blogRoute = require('./routes/blogRoute');
 
 // Use routes
 app.use('/api/auth', authRoute);
 app.use('/api/products', productRoute);
 app.use('/api/auctions', auctionRoute);
+app.use('/api/blogs', blogRoute);
 
 // Default route
 app.get('/', (req, res) => {
