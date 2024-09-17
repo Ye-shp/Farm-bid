@@ -1,18 +1,27 @@
+// blogController.js
+
 const Blog = require('../models/Blog');
 
 // Create a new blog post
 exports.createBlog = async (req, res) => {
   const { title, content } = req.body;
-  const role = req.user.role; // Use role from the authenticated user
 
   try {
-    const newBlog = new Blog({ title, content, role });
+    // Ensure the user field is correctly set
+    const newBlog = new Blog({ 
+      title, 
+      content, 
+      user: req.user.id  // Attach the authenticated user's ID
+    });
+
     await newBlog.save();
     res.status(201).json(newBlog);
   } catch (error) {
+    console.error('Error creating blog:', error); // Log the error for debugging
     res.status(500).json({ error: error.message });
   }
 };
+
 
 // Get all blog posts
 exports.getBlogs = async (req, res) => {
