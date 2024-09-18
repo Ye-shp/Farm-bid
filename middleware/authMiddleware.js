@@ -26,4 +26,13 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
-module.exports = authMiddleware;
+// Role-based access control
+const roleMiddleware = (role) => (req, res, next) => {
+  if (req.user && req.user.role === role) {
+    next();
+  } else {
+    return res.status(403).json({ message: 'Access denied. Role not authorized' });
+  }
+};
+
+module.exports = { authMiddleware, roleMiddleware };
