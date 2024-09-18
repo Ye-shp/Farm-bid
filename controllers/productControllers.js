@@ -17,9 +17,8 @@ const upload = multer({
   storage: multerS3({
     s3: s3,
     bucket: process.env.AWS_BUCKET_NAME,
-    acl: 'public-read', // Set S3 permissions
     key: function (req, file, cb) {
-      cb(null, Date.now().toString() + file.originalname); // Use a unique filename
+      cb(null, Date.now().toString() + '-' + file.originalname); // Use a unique filename
     },
   }),
 });
@@ -29,7 +28,7 @@ exports.createProduct = [
   upload.single('image'), // Use multer middleware to handle the file upload
   async (req, res) => {
     const { title, description } = req.body;
-    const imageUrl = req.file.location; // S3 URL
+    const imageUrl = req.file ? req.file.location : 'https://example.com/default-image.jpg'; // S3 URL or default
 
     try {
       const newProduct = new Product({
@@ -42,6 +41,7 @@ exports.createProduct = [
       await newProduct.save();
       res.status(201).json(newProduct); // Respond with the new product
     } catch (error) {
+      console.error('Error creating product:', error);
       res.status(500).json({ error: error.message });
     }
   },
@@ -53,6 +53,7 @@ exports.getFarmerProducts = async (req, res) => {
     const products = await Product.find({ user: req.user.id }); // Find products by user
     res.json(products);
   } catch (err) {
+    console.error('Error fetching products:', err);
     res.status(500).json({ error: err.message });
   }
 };
