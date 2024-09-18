@@ -15,11 +15,19 @@ const productRoute = require('./routes/productRoute');
 const auctionRoute = require('./routes/auctionRoute');
 const blogRoute = require('./routes/blogRoute');
 
+// Import new farmer and buyer routes for location-based matching
+const farmerRoute = require('./routes/farmerRoute');
+const buyerRoute = require('./routes/buyerRoute');
+
 // Use routes
 app.use('/api/auth', authRoute);
 app.use('/api/products', productRoute);
 app.use('/api/auctions', auctionRoute);
 app.use('/api/blogs', blogRoute);
+
+// Use the new farmer and buyer routes
+app.use('/api/farmers', farmerRoute);
+app.use('/api/buyers', buyerRoute);
 
 // Default route
 app.get('/', (req, res) => {
