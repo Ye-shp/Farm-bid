@@ -1,57 +1,79 @@
 const Auction = require('../models/Auctions');
-const Product = require('../models/Product');
+const Product = require('../models/Product');  // Ensure Product model is correctly imported
 
-// Create a new auction
+// Create a new auction (existing function)
 exports.createAuction = async (req, res) => {
   const { productId, startingBid, endTime } = req.body;
 
   try {
-    // Check if productId, startingBid, and endTime are provided
-    if (!productId || !startingBid || !endTime) {
-      return res.status(400).json({ message: 'Product ID, starting bid, and end time are required' });
+    const product = await Product.findById(productId);
+    if (!product || product.user.toString() !== req.user.id) {
+      return res.status(404).json({ message: 'Product not found or unauthorized' });
     }
 
-    // Log the productId, startingBid, and endTime
-    console.log('Product ID:', productId, 'Starting Bid:', startingBid, 'End Time:', endTime);
-
-    // Check if the product exists and belongs to the logged-in farmer
-    const product = await Product.findById(productId).populate('user');
-    
-    // Log product details
-    if (!product) {
-      console.log('Product not found');
-      return res.status(404).json({ message: 'Product not found' });
-    }
-    
-    console.log('Product found:', product);
-    
-    if (product.user._id.toString() !== req.user.id) {
-      console.log('User not authorized to auction this product');
-      return res.status(403).json({ message: 'You are not authorized to auction this product' });
-    }
-
-    // Log before auction creation
-    console.log('Creating auction for product:', productId);
-
-    // Create a new auction for the product
     const newAuction = new Auction({
       product: productId,
-      startingPrice: startingBid,  // Correct field name for starting price
-      endTime, // Include the end time for the auction
-      bids: [] // Start without bids; bids will be added later by buyers
+      startingPrice: startingBid,
+      endTime,
+      bids: [],
     });
 
     await newAuction.save();
-
-    // Log after successful auction creation
-    console.log('Auction created successfully', newAuction);
-
     res.status(201).json(newAuction);
   } catch (err) {
-    // Log the error message
-    console.error('Error in auction creation:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+};
 
-    // Handle errors during auction creation
+// Get all auctions (existing function)
+exports.getAuctions = async (req, res) => {
+  try {
+    const auctions = await Auction.find().populate('product');
+    res.json(auctions);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Submit a bid (new function)
+exports.submitBid = async (req, res) => {
+  const { auctionId } = req.params;
+  const { bidAmount } = req.body;
+
+  try {
+    const auction = await Auction.findById(auctionId).populate('product');
+
+    // Check if auction exists and is still ongoing
+    if (!auction) {
+      return res.status(404).json({ message: 'Auction not found' });
+    }
+
+    // Check if the bid is higher than the highest bid or starting price
+    const highestBid = auction.bids.length > 0 ? auction.bids[auction.bids.length - 1].amount : auction.startingPrice;
+    if (bidAmount <= highestBid) {
+      return res.status(400).json({ message: 'Bid must be higher than the current highest bid' });
+    }
+
+    // Add the new bid to the auction
+    auction.bids.push({
+      bidder: req.user.id,  // The logged-in user placing the bid
+      amount: bidAmount,
+      time: Date.now(),
+    });
+
+    await auction.save();  // Save the auction with the new bid
+    res.status(200).json(auction);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Get auctions created by the logged-in farmer (existing function)
+exports.getFarmerAuctions = async (req, res) => {
+  try {
+    const auctions = await Auction.find({ 'product.user': req.user.id }).populate('product');
+    res.json(auctions);
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };

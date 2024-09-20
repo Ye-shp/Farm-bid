@@ -1,9 +1,19 @@
 const express = require('express');
-const { createAuction } = require('../controllers/auctionControllers');
+const { createAuction, getAuctions, getFarmerAuctions, submitBid } = require('../controllers/auctionControllers');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
-router.post('/create', authMiddleware, createAuction);  // Protect this route with authMiddleware
+// Create an auction
+router.post('/create', authMiddleware, createAuction);
+
+// Get all auctions (for buyers)
+router.get('/', getAuctions);
+
+// Get farmer's auctions
+router.get('/farmer-auctions', authMiddleware, getFarmerAuctions);
+
+// Submit a bid
+router.post('/:auctionId/bid', authMiddleware, submitBid); // Add this route for submitting bids
 
 module.exports = router;
