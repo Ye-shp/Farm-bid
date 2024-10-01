@@ -1,17 +1,20 @@
 const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
 
-const CommentSchema = new mongoose.Schema({
-  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  content: { type: String, required: true },
+// Comment Schema for threading
+const commentSchema = new Schema({
+  user: { type: Schema.Types.ObjectId, ref: 'User' },
+  content: String,
   createdAt: { type: Date, default: Date.now },
+  replies: [{ type: Schema.Types.ObjectId, ref: 'Comment' }]
 });
 
-const BlogSchema = new mongoose.Schema({
-  title: { type: String, required: true },
-  content: { type: String, required: true },
-  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  createdAt: { type: Date, default: Date.now },
-  comments: [CommentSchema], // Added comments field as an array of comments
+const blogSchema = new Schema({
+  title: String,
+  content: String,
+  user: { type: Schema.Types.ObjectId, ref: 'User' },
+  comments: [commentSchema], // Embedded comments
+  createdAt: { type: Date, default: Date.now }
 });
 
-module.exports = mongoose.model('Blog', BlogSchema);
+module.exports = mongoose.model('Blog', blogSchema);

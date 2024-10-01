@@ -1,64 +1,58 @@
 const Blog = require('../models/Blog');
 
-// Post a comment to a blog
-exports.postComment = async (req, res) => {
-  const { content } = req.body;
-
+// Create a new blog post
+exports.createBlog = async (req, res) => {
+  const { title, content } = req.body;
   try {
-    const blog = await Blog.findById(req.params.id);
-    if (!blog) {
-      return res.status(404).json({ message: 'Blog not found' });
-    }
-
-    const newComment = {
-      user: req.user.id,
-      content: content,
-    };
-
-    blog.comments.push(newComment);
+    const blog = new Blog({
+      title,
+      content,
+      user: req.user.id, // Attach logged-in user
+    });
     await blog.save();
-
     res.status(201).json(blog);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ message: err.message });
   }
 };
 
-// Existing functions to get blogs
+// Get all blogs
 exports.getBlogs = async (req, res) => {
   try {
-    const blogs = await Blog.find().populate('user').populate('comments.user');
+    const blogs = await Blog.find().populate('user', 'email role').sort({ createdAt: -1 });
     res.json(blogs);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ message: err.message });
   }
 };
 
-// Existing function to get a single blog
+// Get a single blog post by ID
 exports.getBlogById = async (req, res) => {
   try {
-    const blog = await Blog.findById(req.params.id).populate('user').populate('comments.user');
+    const blog = await Blog.findById(req.params.id).populate('user', 'email role').populate('comments.user', 'email');
     if (!blog) return res.status(404).json({ message: 'Blog not found' });
     res.json(blog);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ message: err.message });
   }
 };
 
-// Existing function to create a blog
-exports.createBlog = async (req, res) => {
-  const { title, content } = req.body;
-
+// Add a comment to a blog post
+exports.addComment = async (req, res) => {
+  const { content } = req.body;
   try {
-    const newBlog = new Blog({
-      title,
-      content,
-      user: req.user.id,
-    });
+    const blog = await Blog.findById(req.params.id);
+    if (!blog) return res.status(404).json({ message: 'Blog not found' });
 
-    const savedBlog = await newBlog.save();
-    res.status(201).json(savedBlog);
+    const comment = {
+      user: req.user.id,
+      content
+    };
+
+    blog.comments.push(comment);
+    await blog.save();
+    res.status(201).json(comment);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ message: err.message });
   }
 };

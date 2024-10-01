@@ -1,12 +1,19 @@
 const express = require('express');
-const { createBlog, getBlogs, getBlogById, postComment } = require('../controllers/blogController');
+const { createBlog, getBlogs, getBlogById, addComment } = require('../controllers/blogController');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
-router.post('/', authMiddleware, createBlog); // Authenticated users can create blogs
-router.get('/', getBlogs); // Anyone can view blogs
-router.get('/:id', getBlogById); // Anyone can view a specific blog
-router.post('/:id/comments', authMiddleware, postComment); // Authenticated users can post comments
+// Create a blog
+router.post('/create', authMiddleware, createBlog);
+
+// Get all blogs
+router.get('/', getBlogs);
+
+// Get blog by ID (with comments)
+router.get('/:id', getBlogById);
+
+// Add a comment to a blog post
+router.post('/:id/comment', authMiddleware, addComment);
 
 module.exports = router;
