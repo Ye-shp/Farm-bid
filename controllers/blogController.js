@@ -37,22 +37,29 @@ exports.getBlogById = async (req, res) => {
   }
 };
 
-// Add a comment to a blog post
+// Add a comment or reply to a blog post
 exports.addComment = async (req, res) => {
-  const { content } = req.body;
-  try {
-    const blog = await Blog.findById(req.params.id);
-    if (!blog) return res.status(404).json({ message: 'Blog not found' });
+  const { blogId } = req.params;
+  const { content, parentComment } = req.body;
+  const userId = req.user.id; // Assuming you have authMiddleware providing user info
 
-    const comment = {
-      user: req.user.id,
-      content
+  try {
+    const blog = await Blog.findById(blogId);
+    if (!blog) {
+      return res.status(404).json({ message: 'Blog not found' });
+    }
+
+    const newComment = {
+      user: userId,
+      content,
+      parentComment: parentComment || null, // If parentComment exists, it's a reply
     };
 
-    blog.comments.push(comment);
+    blog.comments.push(newComment);
     await blog.save();
-    res.status(201).json(comment);
+
+    res.status(201).json(blog);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: 'Error adding comment' });
   }
 };

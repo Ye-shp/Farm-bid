@@ -1,20 +1,35 @@
-const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
+import axios from 'axios';
 
-// Comment Schema for threading
-const commentSchema = new Schema({
-  user: { type: Schema.Types.ObjectId, ref: 'User' },
-  content: String,
-  createdAt: { type: Date, default: Date.now },
-  replies: [{ type: Schema.Types.ObjectId, ref: 'Comment' }]
-});
+const API_URL = 'http://localhost:5000/api'; // Adjust this for your API
 
-const blogSchema = new Schema({
-  title: String,
-  content: String,
-  user: { type: Schema.Types.ObjectId, ref: 'User' },
-  comments: [commentSchema], // Embedded comments
-  createdAt: { type: Date, default: Date.now }
-});
+// Retrieve the token from local storage
+const getToken = () => localStorage.getItem('token');
 
-module.exports = mongoose.model('Blog', blogSchema);
+// Fetch all blog posts
+export const getBlogPosts = () => axios.get(`${API_URL}/blogs`);
+
+// Fetch a single blog post by ID (with comments)
+export const getBlogPost = (id) => axios.get(`${API_URL}/blogs/${id}`);
+
+// Create a new blog post
+export const createBlogPost = (data) =>
+  axios.post(`${API_URL}/blogs/create`, data, {
+    headers: {
+      Authorization: `Bearer ${getToken()}`, // Attach token for authenticated requests
+    },
+  });
+
+// Add a comment to a blog post
+export const addCommentToBlogPost = (blogId, commentData) =>
+  axios.post(`${API_URL}/blogs/${blogId}/comments`, commentData, {
+    headers: {
+      Authorization: `Bearer ${getToken()}`, // Attach token for authenticated requests
+    },
+  });
+
+export default {
+  getBlogPosts,
+  getBlogPost,
+  createBlogPost,
+  addCommentToBlogPost,
+};

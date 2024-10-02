@@ -14,6 +14,6 @@ router.get('/', getBlogs);
 router.get('/:id', getBlogById);
 
 // Add a comment to a blog post
-router.post('/:id/comment', authMiddleware, addComment);
+router.post('/:id/comment', authMiddleware, blogController.addComment);
 
 module.exports = router;
