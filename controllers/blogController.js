@@ -1,7 +1,7 @@
 const Blog = require('../models/Blog');
 
 // Create a new blog post
-exports.createBlogPost = async (req, res) => {
+exports.createBlog = async (req, res) => {
   const { title, content } = req.body;
   try {
     const blog = new Blog({
@@ -17,7 +17,7 @@ exports.createBlogPost = async (req, res) => {
 };
 
 // Get all blogs
-exports.getBlogPosts = async (req, res) => {
+exports.getBlogs= async (req, res) => {
   try {
     const blogs = await Blog.find().populate('user', 'email role').sort({ createdAt: -1 });
     res.json(blogs);
@@ -27,7 +27,7 @@ exports.getBlogPosts = async (req, res) => {
 };
 
 // Get a single blog post by ID
-exports.getBlogPost = async (req, res) => {
+exports.getBlogById = async (req, res) => {
   try {
     const blog = await Blog.findById(req.params.id).populate('user', 'email role').populate('comments.user', 'email');
     if (!blog) return res.status(404).json({ message: 'Blog not found' });
@@ -38,7 +38,7 @@ exports.getBlogPost = async (req, res) => {
 };
 
 // Add a comment to a blog post
-exports.addCommentToBlogPost = async (req, res) => {
+exports.addComment = async (req, res) => {
   const { content } = req.body;
   try {
     const blog = await Blog.findById(req.params.id);
