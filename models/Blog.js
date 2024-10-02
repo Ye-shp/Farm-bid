@@ -12,7 +12,7 @@ export const getBlogPosts = () => axios.get(`${API_URL}/blogs`);
 export const getBlogPost = (id) => axios.get(`${API_URL}/blogs/${id}`);
 
 // Create a new blog post
-export const createBlogPost = (data) =>
+const createBlogPost = (data) =>
   axios.post(`${API_URL}/blogs/create`, data, {
     headers: {
       Authorization: `Bearer ${getToken()}`, // Attach token for authenticated requests
@@ -20,14 +20,14 @@ export const createBlogPost = (data) =>
   });
 
 // Add a comment to a blog post
-export const addCommentToBlogPost = (blogId, commentData) =>
+const addCommentToBlogPost = (blogId, commentData) =>
   axios.post(`${API_URL}/blogs/${blogId}/comments`, commentData, {
     headers: {
       Authorization: `Bearer ${getToken()}`, // Attach token for authenticated requests
     },
   });
 
-export default {
+module.exports =  {
   getBlogPosts,
   getBlogPost,
   createBlogPost,
