@@ -1,4 +1,4 @@
-import axios from 'axios';
+const axios = require('axios');
 
 const API_URL = 'http://localhost:5000/api'; // Adjust this for your API
 
