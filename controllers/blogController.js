@@ -38,7 +38,7 @@ exports.getBlogById = async (req, res) => {
 };
 
 // Add a comment or reply to a blog post
-exports.addComment = async (req, res) => {
+exports.addCommentToBlogPost = async (req, res) => {
   const { blogId } = req.params;
   const { content, parentComment } = req.body;
   const userId = req.user.id; // Assuming you have authMiddleware providing user info

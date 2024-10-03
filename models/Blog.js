@@ -6,10 +6,10 @@ const API_URL = 'http://localhost:5000/api'; // Adjust this for your API
 const getToken = () => localStorage.getItem('token');
 
 // Fetch all blog posts
-export const getBlogPosts = () => axios.get(`${API_URL}/blogs`);
+const getBlogPosts = () => axios.get(`${API_URL}/blogs`);
 
 // Fetch a single blog post by ID (with comments)
-export const getBlogPost = (id) => axios.get(`${API_URL}/blogs/${id}`);
+const getBlogPost = (id) => axios.get(`${API_URL}/blogs/${id}`);
 
 // Create a new blog post
 const createBlogPost = (data) =>
