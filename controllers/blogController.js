@@ -44,7 +44,7 @@ exports.addCommentToBlogPost = async (req, res) => {
   const userId = req.user.id; // Assuming you have authMiddleware providing user info
 
   try {
-    const blog = await Blog.findById(blogId);
+    const blog = await Blog.findById(req.params.id);
     if (!blog) {
       return res.status(404).json({ message: 'Blog not found' });
     }
