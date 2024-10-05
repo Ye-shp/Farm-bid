@@ -37,7 +37,9 @@ app.get('/', (req, res) => {
 // Connect to MongoDB with enhanced error handling
 console.log('MONGO_URI:', process.env.MONGO_URI);
 
-mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+//mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+mongoose.connect('mongodb+srv://yeabsiramesfin21:Ye216286@cluster0.cu0iwq2.mongodb.net/Farm-bid?retryWrites=true&w=majority', { useNewUrlParser: true, useUnifiedTopology: true })
+
   .then(() => console.log('MongoDB connected successfully'))
   .catch(err => {
     console.error('MongoDB connection error:', err.message);
