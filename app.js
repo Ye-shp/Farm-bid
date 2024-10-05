@@ -2,7 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
-
+const MONGO_URI = "mongodb+srv://yeabsiramesfin21:Ab366544@cluster0.cu0iwq2.mongodb.net/Farm-bid?retryWrites=true&w=majority";  // hardcode for now 
 dotenv.config();
 
 const app = express();
@@ -38,7 +38,7 @@ app.get('/', (req, res) => {
 console.log('MONGO_URI:', process.env.MONGO_URI);
 
 mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log('MongoDB connected successfully'))
+.then(() => console.log('MongoDB connected successfully'))
   .catch(err => {
     console.error('MongoDB connection error:', err.message);
     process.exit(1); // Exit process with failure
