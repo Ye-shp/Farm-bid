@@ -2,7 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const MONGO_URI = "mongodb+srv://yeabsiramesfin21:Ab366544@cluster0.cu0iwq2.mongodb.net/Farm-bid?retryWrites=true&w=majority";  // hardcode for now 
+ 
 dotenv.config();
 
 const app = express();
