@@ -1,78 +1,61 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const dotenv = require('dotenv');
-const morgan = require('morgan'); // Added for request logging
 const cors = require('cors');
-const multer = require('multer');
-const AWS = require('aws-sdk');
-
-// Load environment variables from .env file
+const dotenv = require('dotenv');
+ 
 dotenv.config();
 
 const app = express();
-
-// Middleware
 app.use(express.json());
 app.use(cors());
-app.use(morgan('dev')); // HTTP request logging
 
-// Multer setup for handling file uploads
-const storage = multer.memoryStorage();
-const upload = multer({ storage });
+// Import routes
+const authRoute = require('./routes/authRoute');
+const productRoute = require('./routes/productRoute');
+const auctionRoute = require('./routes/auctionRoute');
+const blogRoute = require('./routes/blogRoute');
 
-// MongoDB Connection
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://<your-default-uri>'; // Fallback in case MONGO_URI is not set
-mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-    .then(() => console.log('MongoDB connected successfully'))
-    .catch(err => {
-        console.error('MongoDB connection error:', err); // Detailed logging of MongoDB errors
-        process.exit(1); // Exit the app in case of connection failure
-    });
+// Import new farmer and buyer routes for location-based matching
+const farmerRoute = require('./routes/farmerRoute');
+const buyerRoute = require('./routes/buyerRoute');
 
-// Routes
+// Use routes
+app.use('/api/auth', authRoute);
+app.use('/api/products', productRoute);
+app.use('/api/auctions', auctionRoute);
+app.use('/api/blogs', blogRoute);
+
+// Use the new farmer and buyer routes
+app.use('/api/farmers', farmerRoute);
+app.use('/api/buyers', buyerRoute);
+
+// Default route
 app.get('/', (req, res) => {
-    res.send('Welcome to Farm Bid Backend');
+  res.send('Welcome to the Elipae API');
 });
 
-app.post('/upload', upload.single('file'), (req, res) => {
-    console.log('Upload route hit'); // Log when upload route is hit
+// Connect to MongoDB with enhanced error handling
+console.log('MONGO_URI:', process.env.MONGO_URI);
 
-    if (!req.file) {
-        return res.status(400).send({ message: 'No file uploaded' });
-    }
+mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+.then(() => console.log('MongoDB connected successfully'))
+  .catch(err => {
+    console.error('MongoDB connection error:', err.message);
+    process.exit(1); // Exit process with failure
+  });
 
-    // Upload to AWS S3 logic
-    const s3 = new AWS.S3({
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-        region: process.env.AWS_REGION
-    });
-
-    const params = {
-        Bucket: process.env.S3_BUCKET_NAME,
-        Key: req.file.originalname,
-        Body: req.file.buffer,
-        ContentType: req.file.mimetype
-    };
-
-    s3.upload(params, (err, data) => {
-        if (err) {
-            console.error('S3 upload error:', err); // Log S3 upload error
-            return res.status(500).send({ message: 'Error uploading file' });
-        }
-
-        res.send({ message: 'File uploaded successfully', data });
-    });
+// Error handling for undefined routes
+app.use((req, res, next) => {
+  res.status(404).json({ message: 'Route not found' });
 });
 
-// Global Error Handler
+// Global error handler for catching any other errors
 app.use((err, req, res, next) => {
-    console.error('Server error:', err.stack); // Detailed error stack logging
-    res.status(500).json({ message: 'An internal server error occurred' });
+  console.error('Server error:', err.message);
+  res.status(500).json({ message: 'An internal server error occurred' });
 });
 
-// Start Server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+
