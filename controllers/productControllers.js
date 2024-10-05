@@ -13,6 +13,7 @@ AWS.config.update({
 const s3 = new AWS.S3();
 
 // Multer setup to upload directly to S3
+console.log('S3 Bucket Name:', process.env.S3_BUCKET_NAME);
 const upload = multer({
   storage: multerS3({
     s3: s3,
