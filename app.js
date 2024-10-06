@@ -66,5 +66,5 @@ process.on('unhandledRejection', (reason, promise) => {
   process.exit(1); // Exit process with failure
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
