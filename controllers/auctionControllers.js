@@ -71,13 +71,29 @@ exports.submitBid = async (req, res) => {
 // Get auctions created by the logged-in farmer (existing function)
 exports.getFarmerAuctions = async (req, res) => {
   try {
-    // Step 1: Find all auctions and populate the 'product' field
+    // Fetch all auctions and populate the product field
     const auctions = await Auction.find().populate('product');
 
-    // Step 2: Filter auctions where the product's user matches the logged-in farmer
-    const farmerAuctions = auctions.filter(auction => auction.product && auction.product.user.toString() === req.user.id);
+    // Filter auctions for the logged-in farmer
+    const farmerAuctions = auctions
+      .filter(auction => auction.product && auction.product.user.toString() === req.user.id)
+      .map(auction => {
+        // Determine the highest bid or fallback to the starting price
+        const highestBid = auction.bids.length > 0
+          ? Math.max(...auction.bids.map(bid => bid.amount))
+          : auction.startingPrice;
 
-    // Step 3: Return a response based on the filtered auctions
+        // Determine if the auction is ongoing or ended
+        const auctionStatus = new Date() > auction.endTime ? 'Ended' : 'Ongoing';
+
+        // Return auction with the highest bid and status
+        return {
+          ...auction.toObject(),  // Convert Mongoose document to plain object
+          highestBid,
+          status: auctionStatus
+        };
+      });
+
     if (farmerAuctions.length === 0) {
       return res.status(404).json({ message: 'No auctions found for this farmer' });
     }
@@ -87,4 +103,5 @@ exports.getFarmerAuctions = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
 
