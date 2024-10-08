@@ -71,9 +71,20 @@ exports.submitBid = async (req, res) => {
 // Get auctions created by the logged-in farmer (existing function)
 exports.getFarmerAuctions = async (req, res) => {
   try {
-    const auctions = await Auction.find({ 'product.user': req.user.id }).populate('product');
-    res.json(auctions);
+    // Step 1: Find all auctions and populate the 'product' field
+    const auctions = await Auction.find().populate('product');
+
+    // Step 2: Filter auctions where the product's user matches the logged-in farmer
+    const farmerAuctions = auctions.filter(auction => auction.product && auction.product.user.toString() === req.user.id);
+
+    // Step 3: Return a response based on the filtered auctions
+    if (farmerAuctions.length === 0) {
+      return res.status(404).json({ message: 'No auctions found for this farmer' });
+    }
+
+    res.json(farmerAuctions);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
+
