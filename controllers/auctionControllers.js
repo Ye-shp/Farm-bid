@@ -28,12 +28,28 @@ exports.createAuction = async (req, res) => {
 // Get all auctions (existing function)
 exports.getAuctions = async (req, res) => {
   try {
+    // Find all auctions and populate the 'product' field
     const auctions = await Auction.find().populate('product');
-    res.json(auctions);
+
+    // Map through each auction to calculate the highest bid
+    const updatedAuctions = auctions.map(auction => {
+      // Calculate the highest bid or fallback to startingPrice
+      const highestBid = auction.bids.length > 0
+        ? Math.max(...auction.bids.map(bid => bid.amount))
+        : auction.startingPrice;
+
+      return {
+        ...auction.toObject(),  // Convert the auction document to a plain object
+        highestBid,  // Add highestBid to the response
+      };
+    });
+
+    res.json(updatedAuctions);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
+
 
 // Submit a bid (new function)
 exports.submitBid = async (req, res) => {
