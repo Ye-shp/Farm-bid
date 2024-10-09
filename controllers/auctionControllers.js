@@ -84,27 +84,21 @@ exports.submitBid = async (req, res) => {
   }
 };
 
-// Get auctions created by the logged-in farmer (existing function)
+// Get auctions created by the logged-in farmer 
 exports.getFarmerAuctions = async (req, res) => {
   try {
-    // Fetch all auctions and populate the product field
     const auctions = await Auction.find().populate('product');
-
-    // Filter auctions for the logged-in farmer
     const farmerAuctions = auctions
       .filter(auction => auction.product && auction.product.user.toString() === req.user.id)
       .map(auction => {
-        // Determine the highest bid or fallback to the starting price
         const highestBid = auction.bids.length > 0
           ? Math.max(...auction.bids.map(bid => bid.amount))
           : auction.startingPrice;
-
-        // Determine if the auction is ongoing or ended
         const auctionStatus = new Date() > auction.endTime ? 'Ended' : 'Ongoing';
 
         // Return auction with the highest bid and status
         return {
-          ...auction.toObject(),  // Convert Mongoose document to plain object
+          ...auction.toObject(),
           highestBid,
           status: auctionStatus
         };

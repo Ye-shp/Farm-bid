@@ -5,11 +5,18 @@ const UserSchema = new mongoose.Schema({
   password: { type: String, required: true },
   role: { type: String, required: true, enum: ['farmer', 'buyer'] },
   
-  // Add location data
   location: {
     latitude: { type: Number, required: true },
     longitude: { type: Number, required: true }
-  }
+  },
+
+  partners: [
+    {
+      name: { type: String, required: true },
+      location: { type: String, required: true },
+      description: { type: String }
+    }
+  ]
 });
 
 module.exports = mongoose.model('User', UserSchema);

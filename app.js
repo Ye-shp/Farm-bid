@@ -24,6 +24,7 @@ app.use('/api/auth', authRoute);
 app.use('/api/products', productRoute);
 app.use('/api/auctions', auctionRoute);
 app.use('/api/blogs', blogRoute);
+app.use('/api/users', userRoute)
 
 // Use the new farmer and buyer routes
 app.use('/api/farmers', farmerRoute);
