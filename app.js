@@ -14,6 +14,7 @@ const authRoute = require('./routes/authRoute');
 const productRoute = require('./routes/productRoute');
 const auctionRoute = require('./routes/auctionRoute');
 const blogRoute = require('./routes/blogRoute');
+const userRoute = require('./routes/userRoute')
 
 // Import new farmer and buyer routes for location-based matching
 const farmerRoute = require('./routes/farmerRoute');
