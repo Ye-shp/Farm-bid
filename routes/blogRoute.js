@@ -1,5 +1,5 @@
 const express = require('express');
-const { createBlog, getBlogs, getBlogById, addCommentToBlogPost, likeBlogPost } = require('../controllers/blogController');
+const { createBlog, getBlogs, getBlogById, addCommentToBlogPost, likeBlogPost, getFeaturedFarms } = require('../controllers/blogController');
 const { authMiddleware } = require('../middleware/authMiddleware');
 const blogController = require('../controllers/blogController');
 
