@@ -13,6 +13,8 @@ const blogSchema = new Schema({
   content: { type: String, required: true },
   user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   comments: [commentSchema],
+  views: { type: Number, default: 0 },  // Track the number of views
+  likes: [{ type: Schema.Types.ObjectId, ref: 'User' }],  // Track users who liked the post
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });

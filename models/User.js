@@ -34,6 +34,7 @@ const UserSchema = new mongoose.Schema({
   ],
 
   wholesaleAvailable: { type: Boolean, default: false }, 
+  deliveryAvailable: { type: Boolean, default: false},
   followers: [{type:mongoose.Schema.Types.ObjectId, ref: 'User'}],
   following :[{type:mongoose.Schema.Types.ObjectId, ref: 'User'}]
 });
