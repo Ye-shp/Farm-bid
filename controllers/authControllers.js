@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken');
 
 // Registration Controller
 exports.register = async (req, res) => {
-  const { email, password, role, location } = req.body; // Added location to the registration request body
+  const { Username, email, password, role, location } = req.body; 
 
   try {
     // Check if the user already exists in the database
@@ -18,6 +18,7 @@ exports.register = async (req, res) => {
 
     // Include location data in the new user document (if provided)
     const newUser = new User({ 
+      Username,
       email, 
       password: hashedPassword, 
       role, 
@@ -33,7 +34,7 @@ exports.register = async (req, res) => {
       // Respond with the user's details and success message
       return res.status(201).json({ 
         message: 'User registered successfully', 
-        user: { id: newUser._id, email: newUser.email, role: newUser.role } 
+        user: { name: Username,id: newUser._id, email: newUser.email, role: newUser.role } 
       });
     } catch (error) {
       return res.status(500).json({ message: 'Error saving new user' });

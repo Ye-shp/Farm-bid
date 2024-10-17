@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const UserSchema = new mongoose.Schema({
+  Username: {type: String, required: true, unique: true},
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   role: { type: String, required: true, enum: ['farmer', 'buyer'] },
@@ -33,6 +34,7 @@ const UserSchema = new mongoose.Schema({
   ],
 
   wholesaleAvailable: { type: Boolean, default: false }, 
+  deliveryAvailable: { type: Boolean, default: false},
   followers: [{type:mongoose.Schema.Types.ObjectId, ref: 'User'}],
   following :[{type:mongoose.Schema.Types.ObjectId, ref: 'User'}]
 });
