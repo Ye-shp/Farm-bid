@@ -20,7 +20,7 @@ exports.createBlog = async (req, res) => {
 // Get all blogs
 exports.getBlogs = async (req, res) => {
   try {
-    const blogs = await Blog.find().populate('user', 'email role').sort({ createdAt: -1 });
+    const blogs = await Blog.find().populate('user', 'username role').sort({ createdAt: -1 });
     res.json(blogs);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -30,7 +30,7 @@ exports.getBlogs = async (req, res) => {
 // Get a single blog post by ID (and increment views)
 exports.getBlogById = async (req, res) => {
   try {
-    const blog = await Blog.findById(req.params.id).populate('user', 'email role').populate('comments.user', 'email');
+    const blog = await Blog.findById(req.params.id).populate('user', 'username role').populate('comments.user', 'username');
     if (!blog) return res.status(404).json({ message: 'Blog not found' });
 
     // Increment the view count
@@ -77,7 +77,7 @@ exports.likeBlogPost = async (req, res) => {
 exports.addCommentToBlogPost = async (req, res) => {
   const { blogId } = req.params;
   const { content, parentComment } = req.body;
-  const userId = req.user.id; // Assuming you have authMiddleware providing user info
+  const userId = req.user.username; // Assuming you have authMiddleware providing user info
 
   try {
     const blog = await Blog.findById(blogId);
