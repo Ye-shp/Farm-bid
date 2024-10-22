@@ -1,5 +1,6 @@
 const Blog = require('../models/Blog');
 const User = require('../models/User');
+const FeaturedFarms = require('../models/FeaturedFarms'); // Import FeaturedFarms model
 
 // Create a new blog post
 exports.createBlog = async (req, res) => {
@@ -100,29 +101,19 @@ exports.addCommentToBlogPost = async (req, res) => {
   }
 };
 
-// Get Featured Farms of the Week based on blog engagement
+// Get Featured Farms of the Week
 exports.getFeaturedFarms = async (req, res) => {
   try {
-    // Aggregate blog engagement data (views, likes, comments) by user (farmer)
-    const topEngagedUsers = await Blog.aggregate([
-      {
-        $group: {
-          _id: "$user",  // Group by the user (farmer)
-          totalEngagement: { $sum: { $add: ["$views", { $size: "$likes" }, { $size: "$comments" }] } }
-        }
-      },
-      { $sort: { totalEngagement: -1 } },  // Sort by highest engagement
-      { $limit: 3 }  // Get top 3 users (farmers)
-    ]);
+    // Fetch the featured farms from the FeaturedFarms collection
+    const featuredFarms = await FeaturedFarms.findOne().populate('farms._id', 'username email description location');
+    
+    if (!featuredFarms) {
+      return res.status(404).json({ message: 'No featured farms found' });
+    }
 
-    // Populate user details
-    const featuredFarms = await User.find({
-      _id: { $in: topEngagedUsers.map(farm => farm._id) }
-    }).select('name email');  // Select only the relevant fields (e.g., name, email)
-
-    res.status(200).json(featuredFarms);
+    res.status(200).json(featuredFarms.farms);
   } catch (error) {
-    console.error(error);
+    console.error('Error fetching featured farms:', error);
     res.status(500).json({ message: 'Error fetching featured farms' });
   }
 };
