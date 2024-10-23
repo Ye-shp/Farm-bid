@@ -4,12 +4,18 @@ const jwt = require('jsonwebtoken');
 
 // Registration Controller
 exports.register = async (req, res) => {
-  const { username, email, password, role, location } = req.body; 
+  const { username, email, password, role, location } = req.body;
+
+  // Ensure that username is provided
+  if (!username) {
+    return res.status(400).json({ message: 'Username is required' });
+  }
 
   try {
     // Check if the user already exists in the database
     const existingUser = await User.findOne({ email });
     if (existingUser) {
+      console.log('User already exists with email:', email);
       return res.status(400).json({ message: 'User already exists' });
     }
 
@@ -17,11 +23,11 @@ exports.register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create the new user document
-    const newUser = new User({ 
+    const newUser = new User({
       username,
-      email, 
-      password: hashedPassword, 
-      role, 
+      email,
+      password: hashedPassword,
+      role,
       location: {
         latitude: location?.latitude || null,
         longitude: location?.longitude || null
@@ -30,18 +36,28 @@ exports.register = async (req, res) => {
 
     // Save the new user in the database
     await newUser.save();
+    console.log('User successfully saved:', newUser);
+
+    // Generate a JWT token for the user
+    const token = jwt.sign(
+      { id: newUser._id, role: newUser.role, username: newUser.username },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
 
     // Respond with the user's details and success message
-    return res.status(201).json({ 
-      message: 'User registered successfully', 
-      user: { name: username, id: newUser._id, email: newUser.email, role: newUser.role }
+    return res.status(201).json({
+      message: 'User registered successfully',
+      user: { name: username, id: newUser._id, email: newUser.email, role: newUser.role },
+      token
     });
+
   } catch (error) {
-    console.error('Error during registration:', error); // Log the detailed error
+    console.error('Error during registration:', error.message);
+    console.error('Error stack trace:', error.stack);
     return res.status(500).json({ message: 'Internal server error. Please try again later.' });
   }
 };
-
 
 // Login Controller
 exports.login = async (req, res) => {
