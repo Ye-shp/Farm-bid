@@ -7,8 +7,8 @@ const UserSchema = new mongoose.Schema({
   role: { type: String, required: true, enum: ['farmer', 'buyer'] },
   
   location: {
-    latitude: { type: Number, required: true },
-    longitude: { type: Number, required: true }
+    latitude: { type: Number, required: false },
+    longitude: { type: Number, required: false }
   },
 
   socialMedia: {
