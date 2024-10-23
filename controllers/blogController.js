@@ -47,10 +47,10 @@ exports.getBlogById = async (req, res) => {
 // Like or unlike a blog post
 exports.likeBlogPost = async (req, res) => {
   const userId = req.user.id;
-  const { blogId } = req.params;
+  const { id } = req.params;
 
   try {
-    const blog = await Blog.findById(blogId);
+    const blog = await Blog.findById(id);
     if (!blog) {
       return res.status(404).json({ message: 'Blog not found' });
     }
@@ -76,12 +76,12 @@ exports.likeBlogPost = async (req, res) => {
 
 // Add a comment or reply to a blog post
 exports.addCommentToBlogPost = async (req, res) => {
-  const { blogId } = req.params;
+  const { id } = req.params;
   const { content, parentComment } = req.body;
   const userId = req.user.username; // Assuming you have authMiddleware providing user info
 
   try {
-    const blog = await Blog.findById(blogId);
+    const blog = await Blog.findById(id);
     if (!blog) {
       return res.status(404).json({ message: 'Blog not found' });
     }
