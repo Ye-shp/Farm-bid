@@ -16,33 +16,32 @@ exports.register = async (req, res) => {
     // Hash the password before saving it to the database
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Include location data in the new user document (if provided)
+    // Create the new user document
     const newUser = new User({ 
       username,
       email, 
       password: hashedPassword, 
       role, 
       location: {
-        latitude: location?.latitude || null,  // Safely set latitude
-        longitude: location?.longitude || null // Safely set longitude
+        latitude: location?.latitude || null,
+        longitude: location?.longitude || null
       }
     });
 
     // Save the new user in the database
-    try {
-      await newUser.save();
-      // Respond with the user's details and success message
-      return res.status(201).json({ 
-        message: 'User registered successfully', 
-        user: { name: username,id: newUser._id, email: newUser.email, role: newUser.role } 
-      });
-    } catch (error) {
-      return res.status(500).json({ message: 'Error saving new user' });
-    }
-  } catch (err) {
-    return res.status(500).json({ error: err.message });
+    await newUser.save();
+
+    // Respond with the user's details and success message
+    return res.status(201).json({ 
+      message: 'User registered successfully', 
+      user: { name: username, id: newUser._id, email: newUser.email, role: newUser.role }
+    });
+  } catch (error) {
+    console.error('Error during registration:', error); // Log the detailed error
+    return res.status(500).json({ message: 'Internal server error. Please try again later.' });
   }
 };
+
 
 // Login Controller
 exports.login = async (req, res) => {
