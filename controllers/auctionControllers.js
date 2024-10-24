@@ -128,7 +128,7 @@ exports.getFarmerAuctions = async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-};
+};  
 
 exports.getNotifications = async (req, res) => {
   try {
