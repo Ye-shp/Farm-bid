@@ -53,6 +53,8 @@ exports.getAuctions = async (req, res) => {
 
 // Submit a bid 
 exports.submitBid = async (req, res) => {
+  const {auctionId} = req.params;
+  const {bidAmount} = req.body;
   try {
     const auction = await Auction.findById(auctionId).populate('product');
 
@@ -81,7 +83,7 @@ exports.submitBid = async (req, res) => {
     });
     await farmerNotification.save();
 
-    // Optionally add notification for the previous highest bidder
+    // Notification for the previous highest bidder
     if (auction.bids.length > 1) {
       const previousBidderId = auction.bids[auction.bids.length - 2].bidder;
       const outbidNotification = new Notification({
