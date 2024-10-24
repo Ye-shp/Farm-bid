@@ -1,5 +1,6 @@
 const Auction = require('../models/Auctions');
-const Product = require('../models/Product');  // Ensure Product model is correctly imported
+const Product = require('../models/Product');  
+const Notification = require('../models/Notification');
 
 // Create a new auction (existing function)
 exports.createAuction = async (req, res) => {
@@ -50,34 +51,47 @@ exports.getAuctions = async (req, res) => {
   }
 };
 
-
-// Submit a bid (new function)
+// Submit a bid 
 exports.submitBid = async (req, res) => {
-  const { auctionId } = req.params;
-  const { bidAmount } = req.body;
-
   try {
     const auction = await Auction.findById(auctionId).populate('product');
 
-    // Check if auction exists and is still ongoing
     if (!auction) {
       return res.status(404).json({ message: 'Auction not found' });
     }
 
-    // Check if the bid is higher than the highest bid or starting price
     const highestBid = auction.bids.length > 0 ? auction.bids[auction.bids.length - 1].amount : auction.startingPrice;
     if (bidAmount <= highestBid) {
       return res.status(400).json({ message: 'Bid must be higher than the current highest bid' });
     }
 
-    // Add the new bid to the auction
     auction.bids.push({
-      bidder: req.user.id,  // The logged-in user placing the bid
+      bidder: req.user.id,
       amount: bidAmount,
       time: Date.now(),
     });
 
-    await auction.save();  // Save the auction with the new bid
+    await auction.save();
+
+    // Add notification for the farmer
+    const farmerNotification = new Notification({
+      user: auction.product.user,
+      message: `A new bid of $${bidAmount} was placed on your product "${auction.product.title}".`,
+      type: 'bid'
+    });
+    await farmerNotification.save();
+
+    // Optionally add notification for the previous highest bidder
+    if (auction.bids.length > 1) {
+      const previousBidderId = auction.bids[auction.bids.length - 2].bidder;
+      const outbidNotification = new Notification({
+        user: previousBidderId,
+        message: `You have been outbid on the auction for "${auction.product.title}".`,
+        type: 'bid'
+      });
+      await outbidNotification.save();
+    }
+
     res.status(200).json(auction);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -109,6 +123,15 @@ exports.getFarmerAuctions = async (req, res) => {
     }
 
     res.json(farmerAuctions);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.getNotifications = async (req, res) => {
+  try {
+    const notifications = await Notification.find({ user: req.user.id }).sort({ createdAt: -1 });
+    res.json(notifications);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
