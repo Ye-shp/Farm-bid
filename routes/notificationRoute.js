@@ -2,8 +2,8 @@
 const express = require('express');
 const router = express.Router();
 const { getNotifications } = require('../controllers/auctionControllers');
-const auth = require('../middleware/authMiddleware');
+const {authMiddleware} = require('../middleware/authMiddleware');
 
-router.get('/', auth, getNotifications);
+router.get('/', authMiddleware, getNotifications);
 
 module.exports = router;
