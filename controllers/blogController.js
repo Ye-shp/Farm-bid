@@ -56,7 +56,7 @@ exports.likeBlogPost = async (req, res) => {
     }
 
     // Check if the user already liked the blog
-    const liked = blog.likes.includes(userId);
+    const liked = blog.likes.some(like=>like.toString()===userId);
 
     if (liked) {
       // If already liked, remove the like (unlike)
@@ -78,7 +78,7 @@ exports.likeBlogPost = async (req, res) => {
 exports.addCommentToBlogPost = async (req, res) => {
   const { id } = req.params;
   const { content, parentComment } = req.body;
-  const userId = req.user.username; // Assuming you have authMiddleware providing user info
+  const userId = req.user.id; // Assuming you have authMiddleware providing user info
 
   try {
     const blog = await Blog.findById(id);
