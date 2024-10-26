@@ -8,3 +8,19 @@ exports.getNotifications = async (req, res) => {
     }
   };
   
+  exports.markNotificationAsRead = async (req, res) => {
+    try {
+      const notification = await Notification.findById(req.params.notificationId);
+      if (!notification) {
+        return res.status(404).json({ message: 'Notification not found' });
+      }
+  
+      notification.read = true;
+      await notification.save();
+  
+      res.json({ message: 'Notification marked as read' });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  };
+  

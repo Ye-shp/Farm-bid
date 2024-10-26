@@ -5,5 +5,7 @@ const { getNotifications } = require('../controllers/notificationController');
 const {authMiddleware} = require('../middleware/authMiddleware');
 
 router.get('/', authMiddleware, getNotifications);
+router.put('/:notificationId/read', authMiddleware, markNotificationAsRead);
+
 
 module.exports = router;
