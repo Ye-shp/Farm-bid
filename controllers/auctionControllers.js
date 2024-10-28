@@ -29,19 +29,21 @@ exports.createAuction = async (req, res) => {
 // Get all auctions (existing function)
 exports.getAuctions = async (req, res) => {
   try {
-    // Find all auctions and populate the 'product' field
     const auctions = await Auction.find().populate('product');
+    
+    const updatedAuctions = auctions.map((auction) => {
+      const currentDate = new Date();
+      if (currentDate > auction.endTime) {
+        auction.status = 'ended';
+      }
 
-    // Map through each auction to calculate the highest bid
-    const updatedAuctions = auctions.map(auction => {
-      // Calculate the highest bid or fallback to startingPrice
       const highestBid = auction.bids.length > 0
-        ? Math.max(...auction.bids.map(bid => bid.amount))
+        ? Math.max(...auction.bids.map((bid) => bid.amount))
         : auction.startingPrice;
 
       return {
-        ...auction.toObject(),  // Convert the auction document to a plain object
-        highestBid,  // Add highestBid to the response
+        ...auction.toObject(),
+        highestBid,
       };
     });
 
@@ -65,6 +67,10 @@ exports.submitBid = async (req, res) => {
     const highestBid = auction.bids.length > 0 ? auction.bids[auction.bids.length - 1].amount : auction.startingPrice;
     if (bidAmount <= highestBid) {
       return res.status(400).json({ message: 'Bid must be higher than the current highest bid' });
+    }
+
+    if (new Date() > auction.endTime || auction.status === 'ended') {
+      return res.status(400).json({ message: 'This auction has already ended.' });
     }
 
     auction.bids.push({
