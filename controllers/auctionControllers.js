@@ -30,13 +30,13 @@ exports.createAuction = async (req, res) => {
 exports.getAuctions = async (req, res) => {
   try {
     const auctions = await Auction.find().populate('product');
-    
+
+    const currentDate = new Date();
     const updatedAuctions = await Promise.all(auctions.map(async (auction) => {
-      const currentDate = new Date();
       if (currentDate > auction.endTime && auction.status !== 'ended') {
         auction.status = 'ended';
         await auction.save(); // Persist the status change to the database
-      } else if (currentDate < auction.endTime && auction.status !== 'active') {
+      } else if (currentDate <= auction.endTime && auction.status !== 'active') {
         auction.status = 'active';
         await auction.save(); // Persist the status change to the database
       }
@@ -56,6 +56,7 @@ exports.getAuctions = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
 
 // Submit a bid 
 exports.submitBid = async (req, res) => {
