@@ -105,33 +105,32 @@ exports.addCommentToBlogPost = async (req, res) => {
 exports.getFeaturedFarms = async (req, res) => {
   try {
     console.log('Fetching featured farms from the database...');
-    
-    // Fetch the featured farms from the FeaturedFarms collection
+
+    // Fetch the featured farms document
     const featuredFarms = await FeaturedFarms.findOne();
-    
     if (!featuredFarms) {
-      console.warn('No featured farms document found in the database.');
+      console.warn('No featured farms document found.');
       return res.status(404).json({ message: 'No featured farms found' });
     }
 
-    console.log('Found featured farms document:', featuredFarms);
+    console.log('Fetched featured farms document:', featuredFarms);
 
-    // Attempt to populate the '_id' reference with user details
+    // Populate the farms with user details
     const populatedFarms = await FeaturedFarms.populate(featuredFarms, {
       path: 'farms._id',
-      select: 'username description',
+      select: 'username email description',
     });
 
     console.log('Populated featured farms:', populatedFarms);
 
     if (!populatedFarms.farms.length) {
       console.warn('No farms found in the featured farms document.');
-      return res.status(404).json({ message: 'No featured farms found' });
+      return res.status(404).json({ message: 'No farms found in the featured list' });
     }
 
     res.status(200).json(populatedFarms.farms);
   } catch (error) {
     console.error('Error fetching featured farms:', error);
-    res.status(500).json({ message: 'Error fetching featured farms', details: error.message });
+    res.status(500).json({ message: 'Error fetching featured farms', error: error.message });
   }
 };
