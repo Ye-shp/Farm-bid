@@ -31,11 +31,8 @@ exports.createAuction = async (req, res) => {
 exports.getAuctions = async (req, res) => {
   try {
     const auctions = await Auction.find().populate('product');
-    const currentDate = new Date();
-
+    
     const updatedAuctions = auctions.map((auction) => {
-      const auctionStatus = currentDate > auction.endTime ? 'ended' : 'active';
-
       const highestBid = auction.bids.length > 0
         ? Math.max(...auction.bids.map((bid) => bid.amount))
         : auction.startingPrice;
@@ -43,7 +40,7 @@ exports.getAuctions = async (req, res) => {
       return {
         ...auction.toObject(),
         highestBid,
-        status: auctionStatus,  // Calculate status based on endTime and current time
+        status: auction.status  // Use the status directly from the database
       };
     });
 
@@ -52,7 +49,6 @@ exports.getAuctions = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
-
 
 
 // Submit a bid 
@@ -120,13 +116,12 @@ exports.getFarmerAuctions = async (req, res) => {
         const highestBid = auction.bids.length > 0
           ? Math.max(...auction.bids.map(bid => bid.amount))
           : auction.startingPrice;
-        const auctionStatus = new Date() > auction.endTime ? 'Ended' : 'Ongoing';
 
-        // Return auction with the highest bid and status
+        // Use the status directly from the database
         return {
           ...auction.toObject(),
           highestBid,
-          status: auctionStatus
+          status: auction.status
         };
       });
 
@@ -138,7 +133,8 @@ exports.getFarmerAuctions = async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-};  
+};
+
 
 exports.getNotifications = async (req, res) => {
   try {
