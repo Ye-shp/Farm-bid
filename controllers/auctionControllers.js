@@ -12,19 +12,10 @@ exports.createAuction = async (req, res) => {
       return res.status(404).json({ message: 'Product not found or unauthorized' });
     }
 
-    // Parse and validate endTime
-    const parsedEndTime = new Date(endTime);
-    const currentDate = new Date();
-
-    if (isNaN(parsedEndTime.getTime()) || parsedEndTime <= currentDate) {
-      return res.status(400).json({ message: 'Invalid or past endTime provided. Please provide a valid future date.' });
-    }
-
-    // Create the auction
     const newAuction = new Auction({
       product: productId,
       startingPrice: startingBid,
-      endTime: parsedEndTime.toISOString(), // Store the endTime in ISO format
+      endTime,
       bids: [],
     });
 
@@ -34,7 +25,6 @@ exports.createAuction = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
-
 
 // Get all auctions 
 exports.getAuctions = async (req, res) => {
