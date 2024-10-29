@@ -26,18 +26,19 @@ exports.createAuction = async (req, res) => {
   }
 };
 
-// Get all auctions (existing function)
+// Get all auctions 
 exports.getAuctions = async (req, res) => {
   try {
     const auctions = await Auction.find().populate('product');
     
-    const updatedAuctions = auctions.map((auction) => {
+    const updatedAuctions = await Promise.all(auctions.map(async (auction) => {
       const currentDate = new Date();
-      if (currentDate > auction.endTime) {
+      if (currentDate > auction.endTime && auction.status !== 'ended') {
         auction.status = 'ended';
-      }
-      if (currentDate < auction.endTime){
+        await auction.save(); // Persist the status change to the database
+      } else if (currentDate < auction.endTime && auction.status !== 'active') {
         auction.status = 'active';
+        await auction.save(); // Persist the status change to the database
       }
 
       const highestBid = auction.bids.length > 0
@@ -48,7 +49,7 @@ exports.getAuctions = async (req, res) => {
         ...auction.toObject(),
         highestBid,
       };
-    });
+    }));
 
     res.json(updatedAuctions);
   } catch (err) {
@@ -58,8 +59,9 @@ exports.getAuctions = async (req, res) => {
 
 // Submit a bid 
 exports.submitBid = async (req, res) => {
-  const {auctionId} = req.params;
-  const {bidAmount} = req.body;
+  const { auctionId } = req.params;
+  const { bidAmount } = req.body;
+
   try {
     const auction = await Auction.findById(auctionId).populate('product');
 
@@ -67,16 +69,18 @@ exports.submitBid = async (req, res) => {
       return res.status(404).json({ message: 'Auction not found' });
     }
 
+    // Check if the auction has ended
+    if (new Date() > auction.endTime || auction.status === 'ended') {
+      return res.status(400).json({ message: 'This auction has already ended.' });
+    }
+
     const highestBid = auction.bids.length > 0 ? auction.bids[auction.bids.length - 1].amount : auction.startingPrice;
     if (bidAmount <= highestBid) {
       return res.status(400).json({ message: 'Bid must be higher than the current highest bid' });
     }
 
-    if (new Date() > auction.endTime || auction.status === 'ended') {
-      return res.status(400).json({ message: 'This auction has already ended.' });
-    }
     auction.bids.push({
-      bidder: req.user.id,
+      user: req.user.id,
       amount: bidAmount,
       time: Date.now(),
     });
@@ -93,7 +97,7 @@ exports.submitBid = async (req, res) => {
 
     // Notification for the previous highest bidder
     if (auction.bids.length > 1) {
-      const previousBidderId = auction.bids[auction.bids.length - 2].bidder;
+      const previousBidderId = auction.bids[auction.bids.length - 2].user;
       const outbidNotification = new Notification({
         user: previousBidderId,
         message: `You have been outbid on the auction for "${auction.product.title}".`,
