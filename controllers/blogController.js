@@ -119,7 +119,7 @@ exports.getFeaturedFarms = async (req, res) => {
     // Attempt to populate the '_id' reference with user details
     const populatedFarms = await FeaturedFarms.populate(featuredFarms, {
       path: 'farms._id',
-      select: 'username email description location',
+      select: 'username description',
     });
 
     console.log('Populated featured farms:', populatedFarms);
