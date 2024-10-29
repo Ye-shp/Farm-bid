@@ -36,6 +36,9 @@ exports.getAuctions = async (req, res) => {
       if (currentDate > auction.endTime) {
         auction.status = 'ended';
       }
+      if (currentDate < auction.endTime){
+        auction.status = 'active';
+      }
 
       const highestBid = auction.bids.length > 0
         ? Math.max(...auction.bids.map((bid) => bid.amount))
@@ -72,7 +75,6 @@ exports.submitBid = async (req, res) => {
     if (new Date() > auction.endTime || auction.status === 'ended') {
       return res.status(400).json({ message: 'This auction has already ended.' });
     }
-
     auction.bids.push({
       bidder: req.user.id,
       amount: bidAmount,
