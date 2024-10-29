@@ -16,6 +16,7 @@ exports.createAuction = async (req, res) => {
       product: productId,
       startingPrice: startingBid,
       endTime,
+      status : 'active',
       bids: [],
     });
 
