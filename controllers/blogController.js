@@ -104,17 +104,34 @@ exports.addCommentToBlogPost = async (req, res) => {
 // Get Featured Farms of the Week
 exports.getFeaturedFarms = async (req, res) => {
   try {
-    // Fetch the featured farms from the FeaturedFarms collection
-    const featuredFarms = await FeaturedFarms.findOne().populate('farms._id', 'username description location');
+    console.log('Fetching featured farms from the database...');
     
-    if (!featuredFarms || !featuredFarms.farms.length) {
+    // Fetch the featured farms from the FeaturedFarms collection
+    const featuredFarms = await FeaturedFarms.findOne();
+    
+    if (!featuredFarms) {
+      console.warn('No featured farms document found in the database.');
       return res.status(404).json({ message: 'No featured farms found' });
     }
 
-    res.status(200).json(featuredFarms.farms);
+    console.log('Found featured farms document:', featuredFarms);
+
+    // Attempt to populate the '_id' reference with user details
+    const populatedFarms = await FeaturedFarms.populate(featuredFarms, {
+      path: 'farms._id',
+      select: 'username email description location',
+    });
+
+    console.log('Populated featured farms:', populatedFarms);
+
+    if (!populatedFarms.farms.length) {
+      console.warn('No farms found in the featured farms document.');
+      return res.status(404).json({ message: 'No featured farms found' });
+    }
+
+    res.status(200).json(populatedFarms.farms);
   } catch (error) {
     console.error('Error fetching featured farms:', error);
     res.status(500).json({ message: 'Error fetching featured farms', details: error.message });
   }
 };
-
