@@ -105,15 +105,16 @@ exports.addCommentToBlogPost = async (req, res) => {
 exports.getFeaturedFarms = async (req, res) => {
   try {
     // Fetch the featured farms from the FeaturedFarms collection
-    const featuredFarms = await FeaturedFarms.findOne().populate('farms._id', 'username email description location');
+    const featuredFarms = await FeaturedFarms.findOne().populate('farms._id', 'username description location');
     
-    if (!featuredFarms) {
+    if (!featuredFarms || !featuredFarms.farms.length) {
       return res.status(404).json({ message: 'No featured farms found' });
     }
 
     res.status(200).json(featuredFarms.farms);
   } catch (error) {
     console.error('Error fetching featured farms:', error);
-    res.status(500).json({ message: 'Error fetching featured farms' });
+    res.status(500).json({ message: 'Error fetching featured farms', details: error.message });
   }
 };
+
