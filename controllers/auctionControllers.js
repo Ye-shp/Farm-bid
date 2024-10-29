@@ -12,10 +12,19 @@ exports.createAuction = async (req, res) => {
       return res.status(404).json({ message: 'Product not found or unauthorized' });
     }
 
+    // Parse and validate endTime
+    const parsedEndTime = new Date(endTime);
+    const currentDate = new Date();
+
+    if (isNaN(parsedEndTime.getTime()) || parsedEndTime <= currentDate) {
+      return res.status(400).json({ message: 'Invalid or past endTime provided. Please provide a valid future date.' });
+    }
+
+    // Create the auction
     const newAuction = new Auction({
       product: productId,
       startingPrice: startingBid,
-      endTime,
+      endTime: parsedEndTime.toISOString(), // Store the endTime in ISO format
       bids: [],
     });
 
@@ -26,20 +35,15 @@ exports.createAuction = async (req, res) => {
   }
 };
 
+
 // Get all auctions 
 exports.getAuctions = async (req, res) => {
   try {
     const auctions = await Auction.find().populate('product');
-
     const currentDate = new Date();
-    const updatedAuctions = await Promise.all(auctions.map(async (auction) => {
-      if (currentDate > auction.endTime && auction.status !== 'ended') {
-        auction.status = 'ended';
-        await auction.save(); // Persist the status change to the database
-      } else if (currentDate <= auction.endTime && auction.status !== 'active') {
-        auction.status = 'active';
-        await auction.save(); // Persist the status change to the database
-      }
+
+    const updatedAuctions = auctions.map((auction) => {
+      const auctionStatus = currentDate > auction.endTime ? 'ended' : 'active';
 
       const highestBid = auction.bids.length > 0
         ? Math.max(...auction.bids.map((bid) => bid.amount))
@@ -48,14 +52,16 @@ exports.getAuctions = async (req, res) => {
       return {
         ...auction.toObject(),
         highestBid,
+        status: auctionStatus,  // Calculate status based on endTime and current time
       };
-    }));
+    });
 
     res.json(updatedAuctions);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
+
 
 
 // Submit a bid 
