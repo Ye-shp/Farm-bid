@@ -77,8 +77,8 @@ exports.likeBlogPost = async (req, res) => {
 // Add a comment or reply to a blog post
 exports.addCommentToBlogPost = async (req, res) => {
   const { id } = req.params;
-  const { content, parentComment } = req.body;
-  const userId = req.user.id; // Assuming you have authMiddleware providing user info
+  const { content } = req.body;
+  const userId = req.user.id;
 
   try {
     const blog = await Blog.findById(id);
@@ -86,10 +86,19 @@ exports.addCommentToBlogPost = async (req, res) => {
       return res.status(404).json({ message: 'Blog not found' });
     }
 
+    const taggedUsers = [];
+    const mentionRegex = /@(\w+)/g;
+    let match;
+    while ((match = mentionRegex.exec(content)) !== null) {
+      const username = match[1];
+      const user = await User.findOne({ username });
+      if (user) taggedUsers.push(user._id);
+    }
+
     const newComment = {
       user: userId,
       content,
-      parentComment: parentComment || null, // If parentComment exists, it's a reply
+      taggedUsers
     };
 
     blog.comments.push(newComment);

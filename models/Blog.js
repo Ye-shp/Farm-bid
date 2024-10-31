@@ -5,6 +5,7 @@ const commentSchema = new Schema({
   user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   content: { type: String, required: true },
   parentComment: { type: Schema.Types.ObjectId, ref: 'Comment', default: null }, // For replies
+  taggedUsers: [{type: Schema.Types.ObjectId, ref: 'User' }],
   createdAt: { type: Date, default: Date.now }
 });
 

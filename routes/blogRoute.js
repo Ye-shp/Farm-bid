@@ -23,4 +23,15 @@ router.post('/:id/like', authMiddleware, likeBlogPost);
 // Get featured farms (based on blog engagement)
 router.get('/featured-farms', getFeaturedFarms);
 
+
+// Get all blogs by a specific user
+router.get('/user/:userId', async (req, res) => {
+    try {
+      const blogs = await Blog.find({ user: req.params.userId }).sort({ createdAt: -1 });
+      res.json(blogs);
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+  
 module.exports = router;
