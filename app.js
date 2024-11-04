@@ -21,7 +21,7 @@ const blogRoute = require('./routes/blogRoute');
 const userRoute = require('./routes/userRoute')
 const notificationRoute = require('./routes/notificationRoute')
 const PaymentRoute = require('./routes/PaymentRoute');
-
+const payoutRoute = require('./routes/payoutRoute');
 
 // Import new farmer and buyer routes for location-based matching
 const farmerRoute = require('./routes/farmerRoute');
@@ -35,7 +35,7 @@ app.use('/api/blogs', blogRoute);
 app.use('/api/users', userRoute);
 app.use('/api/notifications', notificationRoute);
 app.use('/api/payment', PaymentRoute);
-  
+app.use('/api/payout', payoutRoute);  
 
 // Use the new farmer and buyer routes
 app.use('/api/farmers', farmerRoute);
