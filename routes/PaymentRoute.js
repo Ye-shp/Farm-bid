@@ -1,7 +1,7 @@
 const express = require('express');
 const Stripe = require('stripe');
 const app = express();
-const stripe = Stripe(process.env.STRIPE_API_KEY);
+const stripe = Stripe(process.env.STRIPE);
 
 app.use(express.json());
 
