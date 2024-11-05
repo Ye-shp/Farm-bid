@@ -1,5 +1,5 @@
 // controllers/payoutController.js
-const stripe = require('stripe')(process.env.STRIPE);
+const stripe = require('stripe')(STRIPE_API_KEY);
 const User = require('../models/User'); 
 const Payout = require('../models/Payout'); 
 

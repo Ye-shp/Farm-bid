@@ -20,7 +20,7 @@
     "multer-s3": "^2.10.0",
     "node-cron": "^3.0.3",
     "serve": "^14.2.3",
-    "stripe": "^17.3.1"
+    "stripe": "^16.9.0"
   },
   "devDependencies": {
     "nodemon": "^2.0.7"
