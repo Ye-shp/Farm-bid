@@ -1,7 +1,7 @@
 const express = require('express');
 const Stripe = require('stripe');
 const app = express();
-const stripe = Stripe('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');
+const stripe = Stripe(STRIPE_API);
 
 app.use(express.json());
 

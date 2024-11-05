@@ -1,5 +1,5 @@
 // controllers/payoutController.js
-const stripe = require('stripe')('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');
+const stripe = require('stripe')(STRIPE_API);
 const User = require('../models/User'); 
 const Payout = require('../models/Payout'); 
 
