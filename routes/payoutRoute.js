@@ -4,7 +4,7 @@ const express = require('express');
 const router = express.Router();
 const payController = require('../controllers/payController');
 
-router.post('/create-payout', payoutController.createPayout);
-router.post('/create-connected-account',payoutController.createConnectedAccount);
+router.post('/create-payout', payController.createPayout);
+router.post('/create-connected-account',payController.createConnectedAccount);
 
 module.exports = router;
