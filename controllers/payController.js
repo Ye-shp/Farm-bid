@@ -71,7 +71,33 @@ const getPaymentDetails = asyncHandler(async (req, res) => {
     }
 });
 
+const createConnectedAccount = asyncHandler(async (req, res) => {
+    try {
+        const { email } = req.body; // Capture seller email or other identification details
+        
+        // Create a connected account for the seller
+        const account = await stripe.accounts.create({
+            type: 'express',
+            country: 'US',
+            email,
+            capabilities: {
+                card_payments: { requested: true },
+                transfers: { requested: true },
+            },
+        });
+        
+        res.status(200).json({
+            accountId: account.id,
+            message: 'Connected account created successfully!',
+        });
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
+});
+
+
 module.exports = {
+    createConnectedAccount,
     createPaymentIntent,
     handleWebhook,
     getPaymentDetails,
