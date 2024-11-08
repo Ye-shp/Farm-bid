@@ -1,6 +1,7 @@
 const Auction = require('../models/Auctions');
 const Product = require('../models/Product');  
 const Notification = require('../models/Notification');
+const stripe = require('../config/stripeconfig');
 
 // Create a new auction (existing function)
 exports.createAuction = async (req, res) => {
@@ -140,6 +141,56 @@ exports.getNotifications = async (req, res) => {
   try {
     const notifications = await Notification.find({ user: req.user.id }).sort({ createdAt: -1 });
     res.json(notifications);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.endAuction = async (req, res) => {
+  const { auctionId } = req.params;
+
+  try {
+    const auction = await Auction.findById(auctionId).populate('product');
+    
+    if (!auction) {
+      return res.status(404).json({ message: 'Auction not found' });
+    }
+
+    // Ensure the auction is not already ended
+    if (auction.status === 'ended') {
+      return res.status(400).json({ message: 'Auction already ended' });
+    }
+
+    // Find the highest bid
+    if (auction.bids.length === 0) {
+      return res.status(400).json({ message: 'No bids were placed for this auction.' });
+    }
+
+    const highestBid = auction.bids[auction.bids.length - 1];
+    
+    // Update auction to set the winner and end status
+    auction.winningBid = highestBid;
+    auction.status = 'ended';
+
+    // Create a Stripe Payment Intent for the winning bid amount
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: highestBid.amount * 100, // Stripe uses cents
+      currency: 'usd',
+      automatic_payment_methods: { enabled: true },
+      metadata: {
+        auctionId: auction._id.toString(),
+        productId: auction.product._id.toString()
+      }
+    });
+
+    auction.paymentIntentId = paymentIntent.id; // Link the payment intent to the auction
+    await auction.save();
+
+    res.status(200).json({
+      message: 'Auction ended successfully. Payment required from winning bidder.',
+      auction,
+      paymentIntentClientSecret: paymentIntent.client_secret
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

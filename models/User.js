@@ -30,14 +30,20 @@ const UserSchema = new mongoose.Schema({
     {
       name: { type: String, required: true },
       location: { type: String, required: true },
-      description: { type: String }
+      description: { type: String, required: true}, 
     }
   ],
 
   wholesaleAvailable: { type: Boolean, default: false }, 
   deliveryAvailable: { type: Boolean, default: false},
   followers: [{type:mongoose.Schema.Types.ObjectId, ref: 'User'}],
-  following :[{type:mongoose.Schema.Types.ObjectId, ref: 'User'}]
+  following :[{type:mongoose.Schema.Types.ObjectId, ref: 'User'}],
+
+  stripeAccountId: {type: String, required:false },
+  isStripeAccountCreated: {type: Boolean, default :false}, 
+
+
+
 });
 
 module.exports = mongoose.model('User', UserSchema);
