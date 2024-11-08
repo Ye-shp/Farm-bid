@@ -97,16 +97,50 @@ const createConnectedAccount = asyncHandler(async (req, res) => {
     }
 });
 
+const addBankAccount = asyncHandler(async (req, res) => {
+    try {
+        const { accountId, bankAccountDetails } = req.body;
+
+        const bankAccount = await stripe.accounts.createExternalAccount(
+            accountId,
+            {
+                external_account: {
+                    object: 'bank_account',
+                    country: 'US',
+                    currency: 'usd',
+                    account_number: bankAccountDetails.accountNumber,
+                    routing_number: bankAccountDetails.routingNumber,
+                    account_holder_name: bankAccountDetails.holderName,
+                    account_holder_type: 'individual' // or 'company' depending on the account
+                }
+            }
+        );
+
+        res.status(200).json({
+            bankAccountId: bankAccount.id,
+            message: 'Bank account added successfully!',
+        });
+    } catch (error) {
+        res.status(400).json({
+            message: error.message,
+        });
+    }
+});
+
 const createPayout = asyncHandler(async (req, res) => {
     try {
         const { amount, currency = 'usd', accountId } = req.body;
 
-        // Create a payout to the connected account
-        const payout = await stripe.transfers.create({
-            amount: amount * 100, // Stripe expects amount in cents
-            currency,
-            destination: accountId,
-        });
+        // Create a payout from the connected account to the linked bank account
+        const payout = await stripe.payouts.create(
+            {
+                amount: amount * 100, // Amount in cents
+                currency,
+            },
+            {
+                stripeAccount: accountId,
+            }
+        );
 
         res.status(200).json({
             payoutId: payout.id,
@@ -123,6 +157,7 @@ const createPayout = asyncHandler(async (req, res) => {
 
 
 module.exports = {
+    addBankAccount,
     createPayout,
     createConnectedAccount,
     createPaymentIntent,
