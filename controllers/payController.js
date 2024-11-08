@@ -1,6 +1,7 @@
 const asyncHandler = require('express-async-handler');
 const stripe = require('../config/stripeconfig');
-
+const Auctions = require('../models/Auctions');
+const Payout = require('../models/Payout');
 
 const createPaymentIntent = asyncHandler(async (req, res) => {
     try {
@@ -29,35 +30,42 @@ const createPaymentIntent = asyncHandler(async (req, res) => {
 const handleWebhook = asyncHandler(async (req, res) => {
     const sig = req.headers['stripe-signature'];
     let event;
-
+  
     try {
-        event = stripe.webhooks.constructEvent(
-            req.rawBody, // You'll need to configure express to use raw body
-            sig,
-            process.env.STRIPE_WEBHOOK_SECRET
-        );
+      event = stripe.webhooks.constructEvent(
+        req.rawBody,
+        sig,
+        process.env.STRIPE_WEBHOOK_SECRET
+      );
     } catch (err) {
-        return res.status(400).send(`Webhook Error: ${err.message}`);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
     }
-
-    // Handle different event types
+  
     switch (event.type) {
-        case 'payment_intent.succeeded':
-            const paymentIntent = event.data.object;
-            // Add your business logic here
-            // e.g., update order status, send confirmation email, etc.
-            break;
-            
-        case 'payment_intent.payment_failed':
-            // Handle failed payment
-            break;
-
-        default:
-            console.log(`Unhandled event type ${event.type}`);
+      case 'payment_intent.succeeded':
+        const paymentIntent = event.data.object;
+  
+        // Find the auction associated with this payment
+        const auction = await Auction.findOne({ paymentIntentId: paymentIntent.id });
+        if (auction) {
+          auction.status = 'paid'; // Mark auction as paid
+          await auction.save();
+  
+          // Additional business logic here, like notifying the seller
+        }
+        break;
+  
+      case 'payment_intent.payment_failed':
+        // Handle failed payment
+        break;
+  
+      default:
+        console.log(`Unhandled event type ${event.type}`);
     }
-
+  
     res.json({ received: true });
-});
+  });
+  
 
 // Retrieve payment details
 const getPaymentDetails = asyncHandler(async (req, res) => {
@@ -153,6 +161,44 @@ const createPayout = asyncHandler(async (req, res) => {
     }
 });
 
+const createPayoutForAuction = asyncHandler(async (req, res) => {
+    const { auctionId } = req.body;
+
+    try {
+        const auction = await Auction.findById(auctionId).populate('product');
+
+        if (!auction || auction.status !== 'paid') {
+            return res.status(400).json({ message: 'Auction not found or not eligible for payout' });
+        }
+
+        const farmer = auction.product.user;
+
+        // Create a payout using Stripe
+        const payout = await stripe.payouts.create(
+            {
+                amount: auction.winningBid.amount * 100, // Amount in cents
+                currency: 'usd'
+            },
+            {
+                stripeAccount: farmer.stripeAccountId
+            }
+        );
+
+        // Record the payout in the Payout model
+        const newPayout = new Payout({
+            userId: farmer._id,
+            amount: auction.winningBid.amount,
+            date: new Date(),
+            stripePayoutId: payout.id
+        });
+
+        await newPayout.save();
+
+        res.status(200).json({ message: 'Payout created successfully!', payout: newPayout });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
 
 
 
@@ -163,4 +209,5 @@ module.exports = {
     createPaymentIntent,
     handleWebhook,
     getPaymentDetails,
+    createPayoutForAuction,
 };
