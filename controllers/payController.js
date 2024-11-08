@@ -1,5 +1,7 @@
 const asyncHandler = require('express-async-handler');
 const stripe = require('../config/stripeconfig');
+
+
 const createPaymentIntent = asyncHandler(async (req, res) => {
     try {
         const { amount, currency = 'usd' } = req.body;
@@ -95,8 +97,33 @@ const createConnectedAccount = asyncHandler(async (req, res) => {
     }
 });
 
+const createPayout = asyncHandler(async (req, res) => {
+    try {
+        const { amount, currency = 'usd', accountId } = req.body;
+
+        // Create a payout to the connected account
+        const payout = await stripe.transfers.create({
+            amount: amount * 100, // Stripe expects amount in cents
+            currency,
+            destination: accountId,
+        });
+
+        res.status(200).json({
+            payoutId: payout.id,
+            message: 'Payout created successfully!',
+        });
+    } catch (error) {
+        res.status(400).json({
+            message: error.message,
+        });
+    }
+});
+
+
+
 
 module.exports = {
+    createPayout,
     createConnectedAccount,
     createPaymentIntent,
     handleWebhook,
