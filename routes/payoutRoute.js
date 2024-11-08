@@ -6,5 +6,6 @@ const payController = require('../controllers/payController');
 
 router.post('/create-payout', payController.createPayout);
 router.post('/create-connected-account',payController.createConnectedAccount);
+router.post('/add-bank-account', payController.addBankAccount);
 
 module.exports = router;
