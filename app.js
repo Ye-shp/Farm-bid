@@ -23,9 +23,10 @@ const blogRoute = require('./routes/blogRoute');
 const userRoute = require('./routes/userRoute')
 const notificationRoute = require('./routes/notificationRoute')
 const payoutRoute = require('./routes/payoutRoute');
+const contractRoute = require('./routes/contractRoute');
 
 
-// Import new farmer and buyer routes for location-based matching
+//farmer and buyer routes for location-based matching
 const farmerRoute = require('./routes/farmerRoute');
 const buyerRoute = require('./routes/buyerRoute');
 
@@ -37,6 +38,7 @@ app.use('/api/blogs', blogRoute);
 app.use('/api/users', userRoute);
 app.use('/api/notifications', notificationRoute);
 app.use('/api/payout', payoutRoute);
+app.use('/api/open-contracts', contractRoute); 
 
   
 
