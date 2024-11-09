@@ -7,9 +7,9 @@ const FeaturedFarms = require('../models/FeaturedFarms');
 cron.schedule('0 0 * * MON', async () => {
   const timestamp = new Date().toISOString();
   console.log(`[${timestamp}] Running weekly featured farms update...`);
-
+  
   try {
-    // Step 1: Aggregate top engaged users based on blog data
+    // Aggregate the most engaged farms
     const topEngagedUsers = await Blog.aggregate([
       {
         $group: {
@@ -25,32 +25,21 @@ cron.schedule('0 0 * * MON', async () => {
       { $limit: 3 }  // Limit to top 3 farms
     ]);
 
+    // Log the result of aggregation to see if it has data
     console.log(`[${timestamp}] Aggregation result (topEngagedUsers):`, topEngagedUsers);
 
-    // Step 2: Check if there are results to update
-    if (topEngagedUsers.length === 0) {
-      console.log(`[${timestamp}] No farms qualified for featuring this week.`);
-      return;
-    }
-
-    // Step 3: Find or create the FeaturedFarms document
+    // Update the FeaturedFarms document
     let featuredFarms = await FeaturedFarms.findOne();
-    
     if (!featuredFarms) {
-      // If no document exists, create a new one
-      featuredFarms = new FeaturedFarms({ farms: topEngagedUsers });
-      await featuredFarms.save();
-      console.log(`[${timestamp}] Created new FeaturedFarms document:`, featuredFarms);
+      await FeaturedFarms.create({ farms: topEngagedUsers });
     } else {
-      // If document exists, update it
       featuredFarms.farms = topEngagedUsers;
       await featuredFarms.save();
-      console.log(`[${timestamp}] Updated existing FeaturedFarms document:`, featuredFarms);
     }
-    
-    console.log(`[${timestamp}] Weekly featured farms update completed successfully.`);
+
+    console.log(`[${timestamp}] Weekly featured farms updated successfully:`, topEngagedUsers);
   } catch (error) {
-    console.error(`[${timestamp}] Error updating featured farms:`, error);
+    console.error(`[${timestamp}] Error updating weekly featured farms:`, error);
   }
 });
 
