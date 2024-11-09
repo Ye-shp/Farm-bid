@@ -11,6 +11,10 @@ router.post('/create', authMiddleware, createBlog);
 // Get all blogs
 router.get('/', getBlogs);
 
+// Get featured farms (based on blog engagement)
+// Apparently order matters inorder for express to match 
+router.get('/featured-farms', getFeaturedFarms);
+
 // Get blog by ID (with comments and view increment)
 router.get('/:id', getBlogById);
 
@@ -19,9 +23,6 @@ router.post('/:id/comment', authMiddleware, addCommentToBlogPost);
 
 // Like or unlike a blog post
 router.post('/:id/like', authMiddleware, likeBlogPost);
-
-// Get featured farms (based on blog engagement)
-router.get('/featured-farms', getFeaturedFarms);
 
 
 // Get all blogs by a specific user
