@@ -4,7 +4,7 @@ const Blog = require('../models/Blog');
 const FeaturedFarms = require('../models/FeaturedFarms');
 
 // Schedule a cron job to run every Monday at midnight
-cron.schedule('*/1 * * * *', async () => {
+cron.schedule('0 0 * * MON', async () => {
   const timestamp = new Date().toISOString();
   console.log(`[${timestamp}] Running weekly featured farms update...`);
   
