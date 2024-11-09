@@ -8,6 +8,8 @@ mongoose.set('debug', true);
 
 dotenv.config();
 
+require('./jobs/cronJobs'); 
+
 const app = express();
 app.use(express.json());
 app.use(cors());
@@ -79,7 +81,7 @@ process.on('unhandledRejection', (reason, promise) => {
   process.exit(1); // Exit process with failure
 });
 
-require('./jobs/cronJobs');
+
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
