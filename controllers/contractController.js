@@ -71,6 +71,22 @@ exports.fulfillOpenContract = async (req, res) => {
   }
 };
 
+exports.getOpenContractById = async (req, res) => {
+  const { contractId } = req.params;
+
+  try {
+    const contract = await OpenContract.findById(contractId).populate('buyer', 'username location');
+    if (!contract) {
+      return res.status(404).json({ message: 'Open contract not found' });
+    }
+
+    res.status(200).json(contract);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+
 // Close an open contract (for buyers)
 exports.closeOpenContract = async (req, res) => {
   const { contractId } = req.params;
