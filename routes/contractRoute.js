@@ -1,6 +1,6 @@
 // routes/openContractRoutes.js
 const express = require('express');
-const { createOpenContract, getOpenContracts, fulfillOpenContract, closeOpenContract } = require('../controllers/contractController');
+const { createOpenContract, getOpenContracts, fulfillOpenContract, closeOpenContract, getOpenContractById } = require('../controllers/contractController');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
 const router = express.Router();
