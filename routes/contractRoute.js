@@ -11,6 +11,8 @@ router.post('/create', authMiddleware, createOpenContract);
 // Get all open contracts (for farmers to view)
 router.get('/', authMiddleware, getOpenContracts);
 
+router.get('/:contractId', authMiddleware, getOpenContractById);
+
 // Fulfill an open contract (for farmers)
 router.post('/:contractId/fulfill', authMiddleware, fulfillOpenContract);
 
