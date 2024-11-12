@@ -3,6 +3,164 @@ const Product = require('../models/Product');
 const Notification = require('../models/Notification');
 const stripe = require('../config/stripeconfig');
 
+
+const checkAndUpdateExpiredAuctions = async () => {
+  const currentTime = new Date();
+  
+  try {
+    // Find all active auctions that have passed their end time
+    const expiredAuctions = await Auction.find({
+      status: 'active',
+      endTime: { $lt: currentTime }
+    }).populate('product');
+
+    for (const auction of expiredAuctions) {
+      // If there are bids, set the winner
+      if (auction.bids.length > 0) {
+        const winningBid = auction.bids[auction.bids.length - 1];
+        auction.winningBid = winningBid;
+        
+        // Create a payment intent for the winning amount
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: winningBid.amount * 100,
+          currency: 'usd',
+          automatic_payment_methods: { enabled: true },
+          metadata: {
+            auctionId: auction._id.toString(),
+            productId: auction.product._id.toString()
+          }
+        });
+        
+        auction.paymentIntentId = paymentIntent.id;
+
+        // Notify the winner
+        const winnerNotification = new Notification({
+          user: winningBid.user,
+          message: `Congratulations! You won the auction for "${auction.product.title}" with a bid of $${winningBid.amount}. Please complete your payment.`,
+          type: 'auction_won',
+          metadata: {
+            auctionId: auction._id,
+            paymentIntentClientSecret: paymentIntent.client_secret
+          }
+        });
+        await winnerNotification.save();
+
+        // Notify the farmer
+        const farmerNotification = new Notification({
+          user: auction.product.user,
+          message: `Your auction for "${auction.product.title}" has ended with a winning bid of $${winningBid.amount}.`,
+          type: 'auction_ended',
+          metadata: {
+            auctionId: auction._id
+          }
+        });
+        await farmerNotification.save();
+      } else {
+        // Notify the farmer that no bids were placed
+        const farmerNotification = new Notification({
+          user: auction.product.user,
+          message: `Your auction for "${auction.product.title}" has ended with no bids.`,
+          type: 'auction_ended_no_bids'
+        });
+        await farmerNotification.save();
+      }
+
+      auction.status = 'ended';
+      await auction.save();
+    }
+  } catch (error) {
+    console.error('Error in checkAndUpdateExpiredAuctions:', error);
+  }
+};
+
+// Modified getAuctions to exclude ended auctions by default
+exports.getAuctions = async (req, res) => {
+  try {
+    // First, check for any expired auctions
+    await checkAndUpdateExpiredAuctions();
+
+    // Only fetch active auctions by default
+    const showEnded = req.query.showEnded === 'true';
+    const query = showEnded ? {} : { status: 'active' };
+    
+    const auctions = await Auction.find(query).populate('product');
+    
+    const updatedAuctions = auctions.map((auction) => {
+      const highestBid = auction.bids.length > 0
+        ? Math.max(...auction.bids.map((bid) => bid.amount))
+        : auction.startingPrice;
+
+      return {
+        ...auction.toObject(),
+        highestBid,
+        status: auction.status
+      };
+    });
+
+    res.json(updatedAuctions);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Modified getFarmerAuctions to include auction status filter
+exports.getFarmerAuctions = async (req, res) => {
+  try {
+    // Check for expired auctions first
+    await checkAndUpdateExpiredAuctions();
+
+    const { status } = req.query; // Can be 'active', 'ended', or undefined for all
+    const query = { 'product.user': req.user.id };
+    if (status) {
+      query.status = status;
+    }
+
+    const auctions = await Auction.find(query).populate('product');
+    const farmerAuctions = auctions
+      .filter(auction => auction.product && auction.product.user.toString() === req.user.id)
+      .map(auction => {
+        const highestBid = auction.bids.length > 0
+          ? Math.max(...auction.bids.map(bid => bid.amount))
+          : auction.startingPrice;
+
+        return {
+          ...auction.toObject(),
+          highestBid,
+          status: auction.status
+        };
+      });
+
+    res.json(farmerAuctions);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Get auction details including winner info
+exports.getAuctionDetails = async (req, res) => {
+  try {
+    const { auctionId } = req.params;
+    const auction = await Auction.findById(auctionId)
+      .populate('product')
+      .populate('winningBid.user', 'name email'); // Populate winner details
+
+    if (!auction) {
+      return res.status(404).json({ message: 'Auction not found' });
+    }
+
+    // Only allow the farmer or winner to see full details
+    if (auction.status === 'ended' && 
+        req.user.id !== auction.product.user.toString() && 
+        (!auction.winningBid || req.user.id !== auction.winningBid.user.toString())) {
+      return res.status(403).json({ message: 'Unauthorized to view auction details' });
+    }
+
+    res.json(auction);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 // Create a new auction (existing function)
 exports.createAuction = async (req, res) => {
   const { productId, startingBid, endTime } = req.body;
@@ -27,30 +185,6 @@ exports.createAuction = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
-
-// Get all auctions 
-exports.getAuctions = async (req, res) => {
-  try {
-    const auctions = await Auction.find().populate('product');
-    
-    const updatedAuctions = auctions.map((auction) => {
-      const highestBid = auction.bids.length > 0
-        ? Math.max(...auction.bids.map((bid) => bid.amount))
-        : auction.startingPrice;
-
-      return {
-        ...auction.toObject(),
-        highestBid,
-        status: auction.status  // Use the status directly from the database
-      };
-    });
-
-    res.json(updatedAuctions);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-
 
 // Submit a bid 
 exports.submitBid = async (req, res) => {
@@ -106,36 +240,6 @@ exports.submitBid = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
-
-// Get auctions created by the logged-in farmer 
-exports.getFarmerAuctions = async (req, res) => {
-  try {
-    const auctions = await Auction.find().populate('product');
-    const farmerAuctions = auctions
-      .filter(auction => auction.product && auction.product.user.toString() === req.user.id)
-      .map(auction => {
-        const highestBid = auction.bids.length > 0
-          ? Math.max(...auction.bids.map(bid => bid.amount))
-          : auction.startingPrice;
-
-        // Use the status directly from the database
-        return {
-          ...auction.toObject(),
-          highestBid,
-          status: auction.status
-        };
-      });
-
-    if (farmerAuctions.length === 0) {
-      return res.status(404).json({ message: 'No auctions found for this farmer' });
-    }
-
-    res.json(farmerAuctions);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-
 
 exports.getNotifications = async (req, res) => {
   try {
