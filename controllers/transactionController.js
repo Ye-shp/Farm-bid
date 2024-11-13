@@ -293,4 +293,4 @@ const transactionController = {
   })
 };
 
-module.exports = {transactionController};
+module.exports = transactionController;
