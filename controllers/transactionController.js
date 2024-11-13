@@ -293,3 +293,4 @@ const transactionController = {
   })
 };
 
+module.exports = {transactionController};

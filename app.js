@@ -40,7 +40,7 @@ app.use('/api/users', userRoute);
 app.use('/api/notifications', notificationRoute);
 app.use('/api/payout', payoutRoute);
 app.use('/api/open-contracts', contractRoute); 
-app.use ('api/transactions', transactionRoute);
+app.use ('/api/transactions', transactionRoute);
 
   
 
