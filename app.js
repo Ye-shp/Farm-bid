@@ -24,7 +24,7 @@ const userRoute = require('./routes/userRoute')
 const notificationRoute = require('./routes/notificationRoute')
 const payoutRoute = require('./routes/payoutRoute');
 const contractRoute = require('./routes/contractRoute');
-const transactionRoutes = require('.routes/transactionRoutes');
+const transactionRoutes = require('./routes/transactionRoutes');
 
 
 //farmer and buyer routes for location-based matching
