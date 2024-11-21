@@ -26,24 +26,40 @@ const upload = multer({
 
 // Create a new product with an image
 exports.createProduct = [
-  upload.single('image'), // Use multer middleware to handle the file upload
+  upload.single('image'),
   async (req, res) => {
-    const { title, description } = req.body;
-    const imageUrl = req.file ? req.file.location : 'https://example.com/default-image.jpg'; // S3 URL or default
+    const { category, title, customProduct, description } = req.body;
+    const imageUrl = req.file ? req.file.location : 'https://example.com/default-image.jpg';
 
     try {
+      // Validation: Ensure either title or customProduct is provided, but not both
+      if (!title && !customProduct) {
+        return res.status(400).json({ error: 'Please provide either a product title or a custom product name.' });
+      }
+      if (title && customProduct) {
+        return res.status(400).json({ error: 'Please provide only one of product title or custom product name.' });
+      }
+
       const newProduct = new Product({
+        category,
         title,
+        customProduct,
         description,
-        imageUrl, // Save the image URL to the product
-        user: req.user.id, // Link the product to the authenticated user
+        imageUrl,
+        user: req.user.id,
       });
 
       await newProduct.save();
-      res.status(201).json(newProduct); // Respond with the new product
+      res.status(201).json(newProduct);
     } catch (error) {
       console.error('Error creating product:', error);
-      res.status(500).json({ error: error.message });
+
+      if (error.name === 'ValidationError') {
+        // Handle Mongoose validation errors
+        return res.status(400).json({ error: error.message });
+      }
+
+      res.status(500).json({ error: 'Server error' });
     }
   },
 ];
@@ -51,7 +67,7 @@ exports.createProduct = [
 // Get products for the authenticated farmer
 exports.getFarmerProducts = async (req, res) => {
   try {
-    const products = await Product.find({ user: req.user.id }); // Find products by user
+    const products = await Product.find({ user: req.user.id });
     res.json(products);
   } catch (err) {
     console.error('Error fetching products:', err);

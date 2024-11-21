@@ -25,6 +25,7 @@ const notificationRoute = require('./routes/notificationRoute')
 const payoutRoute = require('./routes/payoutRoute');
 const contractRoute = require('./routes/contractRoute');
 const transactionRoute = require('./routes/transactionRoute');
+const searchRoute = require ('./routes/searchRoute');
 
 
 //farmer and buyer routes for location-based matching
@@ -41,6 +42,7 @@ app.use('/api/notifications', notificationRoute);
 app.use('/api/payout', payoutRoute);
 app.use('/api/open-contracts', contractRoute); 
 app.use ('/api/transactions', transactionRoute);
+app.use ('/api/search', searchRoute);
 
   
 
