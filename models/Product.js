@@ -61,4 +61,4 @@ ProductSchema.index({ customProduct: 1 });
 ProductSchema.index({ category: 1 });
 ProductSchema.index({ status: 1 });
 
-module.exports = mongoose.model('Product', ProductSchema);
+module.exports = mongoose.model('Product', ProductSchema, productCategories);
