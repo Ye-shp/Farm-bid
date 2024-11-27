@@ -6,7 +6,7 @@ const UserSchema = new mongoose.Schema({
   password: { type: String, required: true },
   role: { type: String, required: true, enum: ['farmer', 'buyer'] },
   blogs: [{type: mongoose.Schema.Types.ObjectId, ref:'Blog'}],
-  phone: {type: string, required: true,
+  phone: {type: String, required: true,
     validate: {
       validator: function(v) {
         return validator.isMobilePhone(v, 'any');
