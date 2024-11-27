@@ -24,7 +24,7 @@ const upload = multer({
   }),
 });
 //Product categories 
-exports.productCategories =(req, res ) =>{
+exports.getproductCategories =(req, res ) =>{
   try {
     res.json(productCategories);
   }catch (error){
