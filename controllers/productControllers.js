@@ -1,5 +1,5 @@
 const AWS = require('aws-sdk');
-const Product = require('../models/Product');
+const {Product, productCategories }= require('../models/Product');
 const multer = require('multer');
 const multerS3 = require('multer-s3');
 
@@ -23,7 +23,15 @@ const upload = multer({
     },
   }),
 });
-
+//Product categories 
+exports.productCategories =(req, res ) =>{
+  try {
+    res.json(productCategories);
+  }catch (error){
+    console.error('Error fetching product categories:', error);
+    res.status(500).json({error: 'Server error product categories '});
+  }
+}
 // Create a new product with an image
 exports.createProduct = [
   upload.single('image'),

@@ -6,6 +6,14 @@ const UserSchema = new mongoose.Schema({
   password: { type: String, required: true },
   role: { type: String, required: true, enum: ['farmer', 'buyer'] },
   blogs: [{type: mongoose.Schema.Types.ObjectId, ref:'Blog'}],
+  phone: {type: string, required: true,
+    validate: {
+      validator: function(v) {
+        return validator.isMobilePhone(v, 'any');
+      },
+      message: props => `${props.value} is not a valid phone number`
+    }
+  },
   
   location: {
     latitude: { type: Number, required: false },
