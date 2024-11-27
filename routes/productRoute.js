@@ -9,6 +9,6 @@ router.post('/', authMiddleware, createProduct);
 
 // GET route for fetching products by the authenticated farmer
 router.get('/farmer-products', authMiddleware, getFarmerProducts);
-router.get ('/categories', productControllers.getProductCategories);
+router.get ('/categories', productControllers.getproductCategories);
 
 module.exports = router;
