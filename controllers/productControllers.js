@@ -26,7 +26,12 @@ const upload = multer({
 //Product categories 
 exports.getproductCategories =(req, res ) =>{
   try {
+    if (!req.user){
+      return res.status(401).json({ error: 'Unauthorized'});
+    }
+    else {
     res.json(productCategories);
+    }
   }catch (error){
     console.error('Error fetching product categories:', error);
     res.status(500).json({error: 'Server error product categories '});
