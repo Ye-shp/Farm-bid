@@ -28,6 +28,7 @@ exports.register = async (req, res) => {
       email,
       password: hashedPassword,
       role,
+      phone, 
       location: {
         latitude: location?.latitude || null,
         longitude: location?.longitude || null
