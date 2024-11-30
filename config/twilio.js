@@ -6,7 +6,4 @@ const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID; // Optiona
 
 const client = twilio(accountSid, authToken);
 
-module.exports = {
-    client,
-    messagingServiceSid,
-};
+module.exports = {client,messagingServiceSid,};
