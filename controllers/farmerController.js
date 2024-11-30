@@ -17,7 +17,7 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 }
 
 // Get nearby farmers based on buyer's location
-exports.getNearbyFarmers = async (req, res) => {
+const getNearbyFarmers = async (req, res) => {
   const { latitude, longitude } = req.body.location;
   const radius = 50; // Set a radius of 50 km
 
@@ -48,4 +48,4 @@ const notifyFarmerOfNewBid = async (req, res) => {
     }
 };
 
-module.exports = { notifyFarmerOfNewBid };
+module.exports = {  getNearbyFarmers, notifyFarmerOfNewBid };
