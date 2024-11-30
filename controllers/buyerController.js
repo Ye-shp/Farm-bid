@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const { sendSms } = require('../services/notificationService');
 
 // Function to calculate distance between two coordinates
 function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -33,3 +34,6 @@ exports.getNearbyBuyers = async (req, res) => {
     res.status(500).json({ message: 'Error fetching nearby buyers', error });
   }
 };
+
+
+// Twilio notification for contracts and auctions 

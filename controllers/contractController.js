@@ -1,6 +1,8 @@
 // controllers/openContractControllers.js
 const OpenContract = require('../models/OpenContract');
-const Notification = require('../models/Notification');
+const twilio = require ('twilio');
+
+const client = twilio(accountSid, authToken);
 
 // Create a new open contract (for buyers)
 exports.createOpenContract = async (req, res) => {
@@ -40,6 +42,7 @@ exports.fulfillOpenContract = async (req, res) => {
   const { quantity, price } = req.body;
 
   try {
+    // Find the open contract
     const contract = await OpenContract.findById(contractId);
     if (!contract) {
       return res.status(404).json({ message: 'Open contract not found' });
@@ -49,39 +52,45 @@ exports.fulfillOpenContract = async (req, res) => {
       return res.status(400).json({ message: 'This contract has already ended or is not open.' });
     }
 
+    // Find buyer and farmer details from the User model
+    const buyer = await User.findById(contract.buyer);
+    const farmer = await User.findById(req.user.id);
+
+    if (!buyer || !farmer) {
+      return res.status(404).json({ message: 'Buyer or Farmer not found in the database.' });
+    }
+
+    if (!buyer.phone) {
+      return res.status(400).json({ message: 'Buyer does not have a phone number associated with their account.' });
+    }
+
+    // Add the fulfillment to the contract
     contract.fulfillments.push({
-      farmer: req.user.id,
+      farmer: farmer._id,
       quantity,
       price,
     });
 
     await contract.save();
 
-    // Notify the buyer
-    const buyerNotification = new Notification({
-      user: contract.buyer,
-      message: `Your contract for ${contract.productType} has a new fulfillment offer from a farmer.`,
-      type: 'fulfillment'
-    });
-    await buyerNotification.save();
+    // Notify the buyer via SMS
+    const message = `Hello ${buyer.username}, a farmer (${farmer.username}) has offered to fulfill your contract for ${contract.productType}. Log in to Elipae to view details.`;
 
-    res.status(200).json(contract);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-
-exports.getOpenContractById = async (req, res) => {
-  const { contractId } = req.params;
-
-  try {
-    const contract = await OpenContract.findById(contractId).populate('buyer', 'username location');
-    if (!contract) {
-      return res.status(404).json({ message: 'Open contract not found' });
+    try {
+      await client.messages.create({
+        body: message,
+        to: buyer.phone, // Buyer's phone number
+        messagingServiceSid, // Messaging Service SID
+      });
+      console.log('SMS sent successfully to the buyer');
+    } catch (error) {
+      console.error('Failed to send SMS:', error);
+      return res.status(500).json({ message: 'Failed to notify the buyer via SMS.' });
     }
 
     res.status(200).json(contract);
   } catch (err) {
+    console.error('Error fulfilling contract:', err);
     res.status(500).json({ error: err.message });
   }
 };
