@@ -18,8 +18,8 @@ router.get('/farmer-products', authMiddleware, getFarmerProducts);
 //Dont require auth
 router.get('/categories', getproductCategories);
 
-router.get('/allowed-categories', getallowedCategories)
+router.get('/allowed-categories',authMiddleware, getallowedCategories)
 
-router.get('/allowed-products',getallowedProducts )
+router.get('/allowed-products', authMiddleware, getallowedProducts )
 
 module.exports = router;
