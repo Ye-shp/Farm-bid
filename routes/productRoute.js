@@ -9,11 +9,11 @@ const {
   getAllowedProducts,
 } = require('../controllers/productControllers'); 
 
-const authenticateUser = require('../middleware/authMiddleware');
+const {authMiddleware} = require('../middleware/authMiddleware');
 
 // Protected Routes (require authentication)
-router.post('/', authenticateUser, createProduct);
-router.get('/farmer-products', authenticateUser, getFarmerProducts);
+router.post('/', authMiddleware, createProduct);
+router.get('/farmer-products', authMiddleware, getFarmerProducts);
 
 router.get('/categories', getproductCategories);
 router.get('/allowed-categories', getAllowedCategories);
