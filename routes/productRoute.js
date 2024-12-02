@@ -1,10 +1,10 @@
 const express = require('express');
-const { createProduct, getFarmerProducts, getproductCategories, getAllowedCategories, getAllowedProducts } = require('../controllers/productControllers');
+const { createProduct, getFarmerProducts, getproductCategories } = require('../controllers/productControllers');
+const {getAllowedCategories, getAllowedProducts} = require('../models/Product')
 const {authMiddleware }= require('../middleware/authMiddleware');
 
 const router = express.Router();
 
-// POST route for creating a new product (with image upload)
 router.post('/', authMiddleware, createProduct);
 
 // GET route for fetching products by the authenticated farmer
