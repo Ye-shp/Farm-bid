@@ -7,7 +7,7 @@ const {
   getproductCategories,
   getAllowedCategories,
   getAllowedProducts,
-} = require('../controllers/productController'); 
+} = require('../controllers/productControllers'); 
 
 const authenticateUser = require('../middleware/authMiddleware');
 
