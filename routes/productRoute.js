@@ -1,17 +1,22 @@
 const express = require('express');
-const { createProduct, getFarmerProducts, getproductCategories } = require('../controllers/productControllers');
-const {getAllowedCategories, getAllowedProducts} = require('../models/Product')
-const {authMiddleware }= require('../middleware/authMiddleware');
-
 const router = express.Router();
 
-router.post('/', authMiddleware, createProduct);
+const {
+  createProduct,
+  getFarmerProducts,
+  getproductCategories,
+  getAllowedCategories,
+  getAllowedProducts,
+} = require('../controllers/productController'); 
 
-// GET route for fetching products by the authenticated farmer
-router.get('/farmer-products', authMiddleware, getFarmerProducts);
-router.get ('/categories', authMiddleware, getproductCategories);
-router.get ('/allowed-categories',authMiddleware, getAllowedCategories);
-router.get ('/allowed-products', authMiddleware, getAllowedProducts);
+const authenticateUser = require('../middleware/authMiddleware');
 
+// Protected Routes (require authentication)
+router.post('/', authenticateUser, createProduct);
+router.get('/farmer-products', authenticateUser, getFarmerProducts);
+
+router.get('/categories', getproductCategories);
+router.get('/allowed-categories', getAllowedCategories);
+router.get('/allowed-products', getAllowedProducts);
 
 module.exports = router;
