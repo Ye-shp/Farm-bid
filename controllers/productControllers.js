@@ -97,6 +97,16 @@ exports.createProduct = [
   },
 ];
 
+
+exports.getallowedCategories = async (req,res)=>{
+  res.json(allowedCategories);
+};
+
+
+exports.getallowedProducts = async (req,res)=>{
+  re.json(allowedProducts);
+};
+
 // Get products for the authenticated farmer
 exports.getFarmerProducts = async (req, res) => {
   try {
