@@ -4,10 +4,10 @@ const router = express.Router();
 const {
   createProduct,
   getFarmerProducts,
-  getproductCategories,
-  getAllowedCategories,
-  getAllowedProducts,
+  getproductCategories
 } = require('../controllers/productControllers'); 
+
+const {allowedCategories, allowedProducts} = require('../models/Product');
 
 const {authMiddleware} = require('../middleware/authMiddleware');
 
@@ -16,7 +16,14 @@ router.post('/', authMiddleware, createProduct);
 router.get('/farmer-products', authMiddleware, getFarmerProducts);
 
 router.get('/categories', getproductCategories);
-router.get('/allowed-categories', getAllowedCategories);
-router.get('/allowed-products', getAllowedProducts);
+
+router.get('/allowed-categories', (req, res) => {
+  res.json(allowedCategories);
+});
+
+router.get('/allowed-products', (req, res) => {
+  res.json(allowedProducts);
+});
+
 
 module.exports = router;
