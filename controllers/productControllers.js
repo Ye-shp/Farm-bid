@@ -65,7 +65,6 @@ exports.createProduct = [
       return res.status(400).json({ error: 'Please provide only one of product title or custom product name.' });
     }
 
-    // Validate title against allowed products
     if (title && !allowedProducts.includes(title)) {
       return res.status(400).json({ error: 'Invalid product title provided.' });
     }
@@ -97,11 +96,9 @@ exports.createProduct = [
   },
 ];
 
-
 exports.getallowedCategories = async (req,res)=>{
   res.json(allowedCategories);
 };
-
 
 exports.getallowedProducts = async (req,res)=>{
   re.json(allowedProducts);
