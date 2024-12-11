@@ -3,7 +3,7 @@ const Product = require('../models/Product');
 const Notification = require('../models/Notification');
 const stripe = require('../config/stripeconfig');
 
-
+//Error in checkAndUpdateExpiredAuctions: TypeError: Cannot read properties of null (reading '_id')
 const checkAndUpdateExpiredAuctions = async () => {
   const currentTime = new Date();
   
