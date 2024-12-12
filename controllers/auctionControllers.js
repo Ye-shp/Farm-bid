@@ -1,5 +1,5 @@
 const Auction = require('../models/Auctions');
-const Product = require('../models/Product');  
+const { Product }= require('../models/Product');  
 const Notification = require('../models/Notification');
 const stripe = require('../config/stripeconfig');
 
