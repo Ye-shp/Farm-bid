@@ -14,6 +14,7 @@ const {authMiddleware} = require('../middleware/authMiddleware');
 // Protected Routes (require authentication)
 router.post('/', authMiddleware, createProduct);
 router.get('/farmer-products', authMiddleware, getFarmerProducts);
+router.patch('/:productId/approve', authMiddleware, approveProduct);
 
 //Dont require auth
 router.get('/categories', getproductCategories);
