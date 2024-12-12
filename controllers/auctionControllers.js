@@ -163,26 +163,51 @@ exports.getAuctionDetails = async (req, res) => {
 
 // Create a new auction (existing function)
 exports.createAuction = async (req, res) => {
-  const { productId, startingBid, endTime } = req.body;
+  const { productId, startingPrice, endTime } = req.body;  // Changed from startingBid to startingPrice
 
   try {
+    console.log('Creating auction with:', { productId, startingPrice, endTime });
+    console.log('User ID:', req.user.id);
+
     const product = await Product.findById(productId);
-    if (!product || product.user.toString() !== req.user.id) {
-      return res.status(404).json({ message: 'Product not found or unauthorized' });
+    console.log('Found product:', product);
+
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    if (product.user.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Unauthorized - you do not own this product' });
+    }
+
+    if (product.status !== 'Approved') {
+      return res.status(400).json({ message: 'Product must be approved before creating an auction' });
     }
 
     const newAuction = new Auction({
       product: productId,
-      startingPrice: startingBid,
-      endTime,
-      status : 'active',
+      startingPrice,  // Using startingPrice directly
+      endTime: new Date(endTime),  // Ensure endTime is a Date object
+      status: 'active',
       bids: [],
     });
 
     await newAuction.save();
+    console.log('Auction created successfully:', newAuction);
     res.status(201).json(newAuction);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Error in createAuction:', err);
+    if (err.name === 'CastError') {
+      return res.status(400).json({ message: 'Invalid product ID format' });
+    }
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({ message: err.message });
+    }
+    res.status(500).json({ 
+      message: 'Failed to create auction',
+      error: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
   }
 };
 
