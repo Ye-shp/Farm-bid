@@ -79,6 +79,7 @@ exports.createProduct = [
         description,
         imageUrl,
         user: req.user.id,
+        status: 'Approved',
       });
 
       await newProduct.save();
@@ -112,5 +113,25 @@ exports.getFarmerProducts = async (req, res) => {
   } catch (err) {
     console.error('Error fetching products:', err);
     res.status(500).json({ error: err.message });
+  }
+};
+
+// Add this new endpoint to productControllers.js, use this later when we start manually approving products
+exports.approveProduct = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    product.status = 'Approved';
+    await product.save();
+
+    res.json({ message: 'Product approved successfully', product });
+  } catch (err) {
+    console.error('Error approving product:', err);
+    res.status(500).json({ message: 'Failed to approve product', error: err.message });
   }
 };
