@@ -116,7 +116,7 @@ exports.getFarmerProducts = async (req, res) => {
   }
 };
 
-// Add this new endpoint to productControllers.js, use this later when we start manually approving products
+// use this later when we start manually approving products
 exports.approveProduct = async (req, res) => {
   try {
     const { productId } = req.params;

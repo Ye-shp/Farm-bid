@@ -6,7 +6,8 @@ const {
   getFarmerProducts,
   getproductCategories,
   getallowedProducts,
-  getallowedCategories
+  getallowedCategories,
+  approveProduct,
 } = require('../controllers/productControllers'); 
 
 const {authMiddleware} = require('../middleware/authMiddleware');
