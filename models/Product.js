@@ -17,7 +17,7 @@ const allowedCategories = Object.keys(productCategories);
 const ProductSchema = new mongoose.Schema({
   category: {
     type: String,
-    enum: allowedCategories,
+    enum: allowedCategories,  
     required: true,
   },
   title: {
