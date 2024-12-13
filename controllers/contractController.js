@@ -300,3 +300,22 @@ exports.getUserContracts = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+// Get a single contract by ID
+exports.getContractById = async (req, res) => {
+  try {
+    const contract = await OpenContract.findById(req.params.contractId)
+      .populate('buyer', 'username email')
+      .populate('fulfillments.farmer', 'username email')
+      .populate('winningFulfillment.farmer', 'username email');
+
+    if (!contract) {
+      return res.status(404).json({ error: 'Contract not found' });
+    }
+
+    res.json(contract);
+  } catch (error) {
+    console.error('Error fetching contract:', error);
+    res.status(500).json({ error: 'Error fetching contract details' });
+  }
+};
