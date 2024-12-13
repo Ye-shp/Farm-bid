@@ -1,10 +1,15 @@
 const express = require('express');
 const router = express.Router();
+const { authMiddleware } = require('../middleware/authMiddleware');
 const { 
-    createPaymentIntent,
-    handleWebhook,
-    getPaymentDetails 
-} = require('../controllers/payController');
+  processPayment,
+  processPayout,
+  getPaymentStatus,
+  getPayoutStatus,
+  createPaymentIntent,
+  handleWebhook,
+  getPaymentDetails 
+} = require('../controllers/paymentController');
 
 // Configure express to use raw body for webhook
 router.post('/webhook', express.raw({ type: 'application/json' }), handleWebhook);
@@ -13,27 +18,16 @@ router.post('/webhook', express.raw({ type: 'application/json' }), handleWebhook
 router.post('/create-payment-intent', createPaymentIntent);
 router.get('/payment/:paymentIntentId', getPaymentDetails);
 
-const express = require('express');
-const { authMiddleware } = require('../middleware/authMiddleware');
-const { 
-  processPayment,
-  processPayout,
-  getPaymentStatus,
-  getPayoutStatus
-} = require('../controllers/paymentController');
-
-const paymentRouter = express.Router();
-
 // Process payment for a contract (buyer)
-paymentRouter.post('/process/:contractId', authMiddleware, processPayment);
+router.post('/process/:contractId', authMiddleware, processPayment);
 
 // Process payout to farmer
-paymentRouter.post('/payout/:contractId', authMiddleware, processPayout);
+router.post('/payout/:contractId', authMiddleware, processPayout);
 
 // Get payment status
-paymentRouter.get('/status/:paymentId', authMiddleware, getPaymentStatus);
+router.get('/status/:paymentId', authMiddleware, getPaymentStatus);
 
 // Get payout status
-paymentRouter.get('/payout/status/:payoutId', authMiddleware, getPayoutStatus);
+router.get('/payout/status/:payoutId', authMiddleware, getPayoutStatus);
 
-module.exports = { router, paymentRouter };
+module.exports = router;
