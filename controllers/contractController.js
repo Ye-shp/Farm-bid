@@ -278,26 +278,35 @@ exports.acceptFulfillment = async (req, res) => {
 // Get contracts for the current user (both buyer and farmer)
 exports.getUserContracts = async (req, res) => {
   try {
-    let contracts = [];
-    if (req.user.role === 'buyer') {
-      // Get contracts created by the buyer
-      contracts = await OpenContract.find({ buyer: req.user.id })
-        .populate('buyer', 'username')
-        .populate('fulfillments.farmer', 'username')
-        .populate('winningFulfillment.farmer', 'username');
+    const userId = req.user.id;
+    const userRole = req.user.role;
+    let contracts;
+
+    if (userRole === 'buyer') {
+      // For buyers: get all contracts they created
+      contracts = await OpenContract.find({ buyer: userId })
+        .populate('buyer', 'username email')
+        .populate('fulfillments.farmer', 'username email')
+        .populate('winningFulfillment.farmer', 'username email')
+        .sort({ createdAt: -1 });
     } else {
-      // Get contracts where the farmer has made fulfillment offers
+      // For farmers: get contracts they've fulfilled or won
       contracts = await OpenContract.find({
-        'fulfillments.farmer': req.user.id
+        $or: [
+          { 'fulfillments.farmer': userId },
+          { 'winningFulfillment.farmer': userId }
+        ]
       })
-        .populate('buyer', 'username')
-        .populate('fulfillments.farmer', 'username')
-        .populate('winningFulfillment.farmer', 'username');
+        .populate('buyer', 'username email')
+        .populate('fulfillments.farmer', 'username email')
+        .populate('winningFulfillment.farmer', 'username email')
+        .sort({ createdAt: -1 });
     }
-    
+
     res.json(contracts);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  } catch (error) {
+    console.error('Error fetching user contracts:', error);
+    res.status(500).json({ error: 'Error fetching contracts' });
   }
 };
 

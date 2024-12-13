@@ -15,6 +15,9 @@ const router = express.Router();
 // Create an open contract (for buyers)
 router.post('/create', authMiddleware, createOpenContract);
 
+// Get all contracts (for buyers)
+router.get('/', authMiddleware, getUserContracts);
+
 // Get all open contracts (for farmers to view)
 router.get('/open', authMiddleware, getOpenContracts);
 
