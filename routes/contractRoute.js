@@ -5,7 +5,8 @@ const {
     getOpenContracts, 
     fulfillOpenContract, 
     acceptFulfillment,
-    getUserContracts 
+    getUserContracts,
+    getContractById
 } = require('../controllers/contractController');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
@@ -19,6 +20,9 @@ router.get('/open', authMiddleware, getOpenContracts);
 
 // Get user's contracts (both buyer and farmer)
 router.get('/my-contracts', authMiddleware, getUserContracts);
+
+// Get a single contract by ID
+router.get('/:contractId', authMiddleware, getContractById);
 
 // Fulfill an open contract (for farmers)
 router.post('/:contractId/fulfill', authMiddleware, fulfillOpenContract);
