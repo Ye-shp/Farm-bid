@@ -303,49 +303,68 @@ exports.getUserContracts = async (req, res) => {
     const userRole = req.user.role;
     let contracts;
 
+    const populateOptions = [
+      { path: 'buyer', select: 'username email phone' },
+      { path: 'fulfillments.farmer', select: 'username email phone' },
+      { path: 'winningFulfillment.farmer', select: 'username email phone' }
+    ];
+
     if (userRole === 'buyer') {
       // For buyers: get all contracts they created
       contracts = await OpenContract.find({ buyer: userId })
-        .populate('buyer', 'username email')
-        .populate('fulfillments.farmer', 'username email')
-        .populate('winningFulfillment.farmer', 'username email')
+        .populate(populateOptions)
         .sort({ createdAt: -1 });
     } else {
-      // For farmers: get contracts they've fulfilled or won
+      // For farmers: get contracts they've fulfilled or won, or that are open
       contracts = await OpenContract.find({
         $or: [
+          { status: 'open' },
           { 'fulfillments.farmer': userId },
           { 'winningFulfillment.farmer': userId }
         ]
       })
-        .populate('buyer', 'username email')
-        .populate('fulfillments.farmer', 'username email')
-        .populate('winningFulfillment.farmer', 'username email')
+        .populate(populateOptions)
         .sort({ createdAt: -1 });
     }
 
     res.json(contracts);
   } catch (error) {
     console.error('Error fetching user contracts:', error);
-    res.status(500).json({ error: 'Error fetching contracts' });
+    res.status(500).json({ error: 'Error fetching contracts', details: error.message });
   }
 };
 
 // Get a single contract by ID
 exports.getContractById = async (req, res) => {
   try {
+    const userId = req.user.id;
+    const userRole = req.user.role;
+    
     const contract = await OpenContract.findById(req.params.contractId)
-      .populate('buyer', 'username email')
-      .populate('fulfillments.farmer', 'username email')
-      .populate('winningFulfillment.farmer', 'username email');
+      .populate('buyer', 'username email phone')
+      .populate('fulfillments.farmer', 'username email phone')
+      .populate('winningFulfillment.farmer', 'username email phone');
 
     if (!contract) {
       return res.status(404).json({ error: 'Contract not found' });
     }
 
+    // Check if user has permission to view this contract
+    const canView = 
+      userRole === 'buyer' && contract.buyer.toString() === userId ||
+      userRole === 'farmer' && (
+        contract.status === 'open' ||
+        contract.fulfillments.some(f => f.farmer.toString() === userId) ||
+        (contract.winningFulfillment && contract.winningFulfillment.farmer.toString() === userId)
+      );
+
+    if (!canView) {
+      return res.status(403).json({ error: 'You do not have permission to view this contract' });
+    }
+
     res.json(contract);
   } catch (error) {
     console.error('Error fetching contract:', error);
-    res.status(500).json({ error: 'Error fetching contract details' });
+    res.status(500).json({ error: 'Error fetching contract details', details: error.message });
   }
 };
