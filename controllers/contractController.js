@@ -340,8 +340,7 @@ exports.getContractById = async (req, res) => {
     
     const contract = await OpenContract.findById(req.params.contractId)
       .populate('buyer', 'username email phone')
-      .populate('fulfillments.farmer', 'username email phone')
-      .populate('winningFulfillment.farmer', 'username email phone');
+      .populate('fulfillments.farmer', 'username email phone');
 
     if (!contract) {
       return res.status(404).json({ error: 'Contract not found' });
@@ -352,8 +351,7 @@ exports.getContractById = async (req, res) => {
       userRole === 'buyer' && contract.buyer.toString() === userId ||
       userRole === 'farmer' && (
         contract.status === 'open' ||
-        contract.fulfillments.some(f => f.farmer.toString() === userId) ||
-        (contract.winningFulfillment && contract.winningFulfillment.farmer.toString() === userId)
+        contract.fulfillments.some(f => f.farmer.toString() === userId)
       );
 
     if (!canView) {
