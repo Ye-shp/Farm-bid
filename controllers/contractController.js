@@ -74,16 +74,38 @@ async function notifyRelevantFarmers(contract) {
 
 // Create a new open contract
 exports.createOpenContract = async (req, res) => {
-  const { productType, productCategory, quantity, maxPrice, endTime } = req.body;
-
   try {
+    const { productType, productCategory, quantity, maxPrice, endTime } = req.body;
+
+    // Validate required fields
+    if (!productType || !productCategory || !quantity || !maxPrice || !endTime) {
+      return res.status(400).json({ 
+        error: 'Missing required fields. Please provide productType, productCategory, quantity, maxPrice, and endTime.' 
+      });
+    }
+
+    // Validate quantity and price
+    if (quantity <= 0) {
+      return res.status(400).json({ error: 'Quantity must be greater than 0.' });
+    }
+    if (maxPrice <= 0) {
+      return res.status(400).json({ error: 'Maximum price must be greater than 0.' });
+    }
+
+    // Validate end time
+    const endTimeDate = new Date(endTime);
+    const now = new Date();
+    if (endTimeDate <= now) {
+      return res.status(400).json({ error: 'End time must be in the future.' });
+    }
+
     const newContract = new OpenContract({
       buyer: req.user.id,
       productType,
       productCategory,
       quantity,
       maxPrice,
-      endTime,
+      endTime: endTimeDate,
       status: 'open',
       fulfillments: [],
       notifiedFarmers: [],
@@ -96,7 +118,10 @@ exports.createOpenContract = async (req, res) => {
 
     res.status(201).json(newContract);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Contract creation error:', err);
+    res.status(500).json({ 
+      error: err.message || 'An error occurred while creating the contract.' 
+    });
   }
 };
 
