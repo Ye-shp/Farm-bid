@@ -1,4 +1,4 @@
-// routes/openContractRoutes.js
+// routes/contractRoute.js
 const express = require('express');
 const { 
     createOpenContract, 
@@ -12,11 +12,8 @@ const { authMiddleware } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
-// Create an open contract (for buyers)
+// Create a contract (for buyers)
 router.post('/create', authMiddleware, createOpenContract);
-
-// Get all contracts (for buyers)
-router.get('/', authMiddleware, getUserContracts);
 
 // Get all open contracts (for farmers to view)
 router.get('/open', authMiddleware, getOpenContracts);
