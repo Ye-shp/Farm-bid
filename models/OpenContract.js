@@ -16,7 +16,7 @@ const OpenContractSchema = new mongoose.Schema({
   deliveryMethod: {
     type: String,
     enum: ['buyer_pickup', 'farmer_delivery', 'third_party'],
-    required: true
+    default: 'buyer_pickup'
   },
   deliveryAddress: {
     street: String,

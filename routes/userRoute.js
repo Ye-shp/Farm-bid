@@ -5,6 +5,25 @@ const User = require('../models/User');
 const { authMiddleware } = require('../middleware/authMiddleware');
 const router = express.Router();
 
+// GET /api/users/profile - Get current user's profile
+router.get('/profile', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id)
+      .select('-password')
+      .populate('followers', 'username email')
+      .populate('following', 'username email')
+      .populate('partners', 'username email');
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json(user);
+  } catch (err) {
+    console.error('Error fetching user profile:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/users/:userId - Get user by ID
 router.get('/:userId', async (req, res) => {
   try {
