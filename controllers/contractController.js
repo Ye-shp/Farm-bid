@@ -75,7 +75,15 @@ async function notifyRelevantFarmers(contract) {
 // Create a new open contract
 exports.createOpenContract = async (req, res) => {
   try {
-    const { productType, productCategory, quantity, maxPrice, endTime } = req.body;
+    const { 
+      productType, 
+      productCategory, 
+      quantity, 
+      maxPrice, 
+      endTime,
+      deliveryMethod,
+      deliveryAddress 
+    } = req.body;
 
     // Validate required fields
     if (!productType || !productCategory || !quantity || !maxPrice || !endTime) {
@@ -99,6 +107,16 @@ exports.createOpenContract = async (req, res) => {
       return res.status(400).json({ error: 'End time must be in the future.' });
     }
 
+    // Validate delivery method if provided
+    if (deliveryMethod && !['buyer_pickup', 'farmer_delivery', 'third_party'].includes(deliveryMethod)) {
+      return res.status(400).json({ error: 'Invalid delivery method.' });
+    }
+
+    // Validate delivery address if not buyer pickup
+    if (deliveryMethod !== 'buyer_pickup' && !deliveryAddress) {
+      return res.status(400).json({ error: 'Delivery address is required for delivery options.' });
+    }
+
     const newContract = new OpenContract({
       buyer: req.user.id,
       productType,
@@ -107,8 +125,11 @@ exports.createOpenContract = async (req, res) => {
       maxPrice,
       endTime: endTimeDate,
       status: 'open',
+      deliveryMethod: deliveryMethod || 'buyer_pickup',
+      deliveryAddress: deliveryMethod !== 'buyer_pickup' ? deliveryAddress : null,
       fulfillments: [],
       notifiedFarmers: [],
+      paymentStatus: 'pending'
     });
 
     await newContract.save();
