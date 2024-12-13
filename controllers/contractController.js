@@ -348,13 +348,20 @@ exports.getContractById = async (req, res) => {
 
     // Check if user has permission to view this contract
     const canView = 
-      userRole === 'buyer' && contract.buyer.toString() === userId ||
+      userRole === 'buyer' && contract.buyer.toString() === userId || // Buyer who created the contract
       userRole === 'farmer' && (
-        contract.status === 'open' ||
-        contract.fulfillments.some(f => f.farmer.toString() === userId)
+        contract.status === 'open' || // Any farmer can view open contracts
+        contract.fulfillments?.some(f => f.farmer._id.toString() === userId) // Farmer who made an offer
       );
 
     if (!canView) {
+      console.log('Permission denied:', {
+        userRole,
+        userId,
+        contractBuyer: contract.buyer.toString(),
+        status: contract.status,
+        hasFulfillment: contract.fulfillments?.some(f => f.farmer._id.toString() === userId)
+      });
       return res.status(403).json({ error: 'You do not have permission to view this contract' });
     }
 
