@@ -305,8 +305,7 @@ exports.getUserContracts = async (req, res) => {
 
     const populateOptions = [
       { path: 'buyer', select: 'username email phone' },
-      { path: 'fulfillments.farmer', select: 'username email phone' },
-      { path: 'winningFulfillment.farmer', select: 'username email phone' }
+      { path: 'fulfillments.farmer', select: 'username email phone' }
     ];
 
     if (userRole === 'buyer') {
@@ -319,8 +318,7 @@ exports.getUserContracts = async (req, res) => {
       contracts = await OpenContract.find({
         $or: [
           { status: 'open' },
-          { 'fulfillments.farmer': userId },
-          { 'winningFulfillment.farmer': userId }
+          { 'fulfillments.farmer': userId }
         ]
       })
         .populate(populateOptions)
