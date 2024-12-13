@@ -1,17 +1,37 @@
 const mongoose = require('mongoose');
 
-const OpenContractSchema = new mongoose.Schema({
-  buyer: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  productType: { type: String, required: true },
-  productCategory: { type: String, required: true },
-  quantity: { type: Number, required: true },
-  maxPrice: { type: Number, required: true },
-  endTime: { type: Date, required: true },
-  status: { 
-    type: String, 
-    required: true, 
-    enum: ['open', 'pending_fulfillment', 'fulfilled', 'closed', 'expired', 'pending_payment', 'payment_complete'],
-    default: 'open' 
+const openContractSchema = new mongoose.Schema({
+  buyer: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  productType: {
+    type: String,
+    required: true
+  },
+  productCategory: {
+    type: String,
+    required: true
+  },
+  quantity: {
+    type: Number,
+    required: true,
+    min: 1
+  },
+  maxPrice: {
+    type: Number,
+    required: true,
+    min: 0
+  },
+  endTime: {
+    type: Date,
+    required: true
+  },
+  status: {
+    type: String,
+    enum: ['open', 'fulfilled', 'completed', 'cancelled'],
+    default: 'open'
   },
   deliveryMethod: {
     type: String,
@@ -37,70 +57,72 @@ const OpenContractSchema = new mongoose.Schema({
     transactionId: String,
     amount: Number,
     processingFee: Number,
-    paidAt: Date
+    paymentDate: Date,
+    paymentMethod: String
   },
-  fulfillments: [
-    {
-      farmer: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-      quantity: { type: Number, required: true },
-      price: { type: Number, required: true },
-      status: {
-        type: String,
-        enum: ['pending', 'accepted', 'rejected'],
-        default: 'pending'
-      },
-      deliveryMethod: {
-        type: String,
-        enum: ['buyer_pickup', 'farmer_delivery', 'third_party'],
-        required: true
-      },
-      deliveryFee: Number,
-      estimatedDeliveryDate: Date,
-      fulfilledAt: { type: Date, default: Date.now }
-    }
-  ],
-  winningFulfillment: {
-    farmer: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    quantity: { type: Number },
-    price: { type: Number },
+  fulfillments: [{
+    farmer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    price: {
+      type: Number,
+      required: true
+    },
+    status: {
+      type: String,
+      enum: ['pending', 'accepted', 'rejected'],
+      default: 'pending'
+    },
     deliveryMethod: {
       type: String,
-      enum: ['buyer_pickup', 'farmer_delivery', 'third_party']
+      enum: ['buyer_pickup', 'farmer_delivery', 'third_party'],
+      default: 'buyer_pickup'
     },
-    deliveryFee: Number,
+    deliveryFee: {
+      type: Number,
+      default: 0
+    },
     estimatedDeliveryDate: Date,
-    acceptedAt: { type: Date }
-  },
-  notifiedFarmers: [{ 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User' 
-  }]
-}, {
-  timestamps: true
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  notifiedFarmers: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
 });
 
 // Add index for efficient querying of open contracts
-OpenContractSchema.index({ status: 1, productType: 1, productCategory: 1 });
+openContractSchema.index({ status: 1, productType: 1, productCategory: 1 });
 
 // Method to check if contract is expired
-OpenContractSchema.methods.isExpired = function() {
+openContractSchema.methods.isExpired = function() {
   return new Date() > this.endTime;
 };
 
 // Method to check if contract can be fulfilled
-OpenContractSchema.methods.canBeFulfilled = function() {
+openContractSchema.methods.canBeFulfilled = function() {
   return this.status === 'open' && !this.isExpired();
 };
 
 // Calculate total amount including delivery fee
-OpenContractSchema.methods.calculateTotalAmount = function() {
-  if (!this.winningFulfillment) return 0;
+openContractSchema.methods.calculateTotalAmount = function() {
+  if (!this.fulfillments || !this.fulfillments.length) return 0;
   
-  const subtotal = this.winningFulfillment.price * this.winningFulfillment.quantity;
-  const deliveryFee = this.winningFulfillment.deliveryFee || 0;
+  const fulfillment = this.fulfillments[0];
+  const subtotal = fulfillment.price * this.quantity;
+  const deliveryFee = fulfillment.deliveryFee || 0;
   const processingFee = subtotal * 0.05; // 5% processing fee
   
   return subtotal + deliveryFee + processingFee;
 };
 
-module.exports = mongoose.model('OpenContract', OpenContractSchema);
+module.exports = mongoose.model('OpenContract', openContractSchema);

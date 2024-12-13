@@ -26,7 +26,7 @@ const payoutRoute = require('./routes/payoutRoute');
 const contractRoute = require('./routes/contractRoute');
 const transactionRoute = require('./routes/transactionRoute');
 const searchRoute = require ('./routes/searchRoute');
-
+const paymentRoute = require('./routes/paymentRoute'); // Added paymentRoute
 
 //farmer and buyer routes for location-based matching
 const farmerRoute = require('./routes/farmerRoute');
@@ -43,8 +43,7 @@ app.use('/api/payout', payoutRoute);
 app.use('/api/open-contracts', contractRoute); 
 app.use ('/api/transactions', transactionRoute);
 app.use ('/api/search', searchRoute);
-
-  
+app.use('/api/payments', paymentRoute); // Added payment route
 
 // Use the new farmer and buyer routes
 app.use('/api/farmers', farmerRoute);
@@ -87,10 +86,6 @@ process.on('unhandledRejection', (reason, promise) => {
   process.exit(1); // Exit process with failure
 });
 
-
-
+// Server running
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
-
-
