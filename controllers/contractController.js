@@ -161,76 +161,61 @@ exports.getOpenContracts = async (req, res) => {
 
 // Fulfill an open contract (for farmers)
 exports.fulfillOpenContract = async (req, res) => {
-  const { contractId } = req.params;
-  const { quantity, price } = req.body;
-
   try {
-    const contract = await OpenContract.findById(contractId);
+    console.log('Fulfillment request:', {
+      contractId: req.params.contractId,
+      farmerId: req.user.id,
+      body: req.body
+    });
+
+    const contract = await OpenContract.findById(req.params.contractId);
     if (!contract) {
-      return res.status(404).json({ message: 'Open contract not found' });
+      return res.status(404).json({ error: 'Contract not found' });
     }
 
-    if (!contract.canBeFulfilled()) {
-      return res.status(400).json({ 
-        message: 'This contract has expired or is no longer open for fulfillment.' 
-      });
+    // Check if contract is open
+    if (contract.status !== 'open') {
+      return res.status(400).json({ error: 'Contract is not open for fulfillment' });
     }
 
+    // Check if farmer has already made an offer
+    const existingFulfillment = contract.fulfillments.find(
+      f => f.farmer.toString() === req.user.id
+    );
+    if (existingFulfillment) {
+      return res.status(400).json({ error: 'You have already made an offer on this contract' });
+    }
+
+    // Validate price
+    const price = parseFloat(req.body.price);
+    if (isNaN(price) || price <= 0) {
+      return res.status(400).json({ error: 'Invalid price' });
+    }
     if (price > contract.maxPrice) {
-      return res.status(400).json({ 
-        message: 'Offered price exceeds the maximum price set by the buyer.' 
-      });
+      return res.status(400).json({ error: 'Price exceeds maximum allowed price' });
     }
 
-    if (quantity > contract.quantity) {
-      return res.status(400).json({ 
-        message: 'Offered quantity exceeds the required quantity.' 
-      });
-    }
-
-    const buyer = await User.findById(contract.buyer);
-    const farmer = await User.findById(req.user.id);
-
-    if (!buyer || !farmer) {
-      return res.status(404).json({ message: 'Buyer or Farmer not found.' });
-    }
-
-    // Add the fulfillment offer
+    // Add fulfillment
     contract.fulfillments.push({
-      farmer: farmer._id,
-      quantity,
-      price,
+      farmer: req.user.id,
+      price: price,
+      notes: req.body.notes || '',
       status: 'pending'
     });
 
-    // Update contract status
-    contract.status = 'pending_fulfillment';
     await contract.save();
 
-    // Notify the buyer
+    // Send notification to buyer
     await createNotification(
-      buyer._id,
-      `Farmer ${farmer.username} has offered to fulfill your contract for ${contract.productType}.`,
-      'fulfillment'
+      contract.buyer,
+      `New fulfillment offer received for contract: ${contract.productType}`,
+      'contract_fulfillment'
     );
 
-    // Send SMS to buyer if phone available
-    if (buyer.phone) {
-      try {
-        await client.messages.create({
-          body: `Hello ${buyer.username}, farmer ${farmer.username} has offered to fulfill your contract for ${contract.productType}. Log in to Elipae to view details.`,
-          to: buyer.phone,
-          messagingServiceSid,
-        });
-      } catch (error) {
-        console.error('Failed to send SMS:', error);
-      }
-    }
-
-    res.status(200).json(contract);
-  } catch (err) {
-    console.error('Error fulfilling contract:', err);
-    res.status(500).json({ error: err.message });
+    res.json(contract);
+  } catch (error) {
+    console.error('Error in fulfillOpenContract:', error);
+    res.status(500).json({ error: 'Failed to fulfill contract', details: error.message });
   }
 };
 
