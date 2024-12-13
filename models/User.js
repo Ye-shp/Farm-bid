@@ -7,7 +7,9 @@ const UserSchema = new mongoose.Schema({
   password: { type: String, required: true },
   role: { type: String, required: true, enum: ['farmer', 'buyer'] },
   blogs: [{type: mongoose.Schema.Types.ObjectId, ref:'Blog'}],
-  phone: {type: String, required: true,
+  phone: {
+    type: String, 
+    required: true,
     validate: {
       validator: function(v) {
         return validator.isMobilePhone(v, 'any');
@@ -16,9 +18,27 @@ const UserSchema = new mongoose.Schema({
     }
   },
   
-  location: {
-    latitude: { type: Number, required: false },
-    longitude: { type: Number, required: false }
+  address: {
+    street: { type: String, required: true },
+    city: { type: String, required: true },
+    state: { type: String, required: true },
+    zipCode: { type: String, required: true },
+    coordinates: {
+      lat: { type: Number, required: true },
+      lng: { type: Number, required: true }
+    }
+  },
+
+  deliveryOptions: {
+    providesDelivery: { type: Boolean, default: false },
+    deliveryRadius: { type: Number }, // in miles
+    deliveryFee: {
+      base: { type: Number }, // base delivery fee
+      perMile: { type: Number } // additional fee per mile
+    },
+    minimumOrderForDelivery: { type: Number },
+    thirdPartyDelivery: { type: Boolean, default: false },
+    pickupAvailable: { type: Boolean, default: true }
   },
 
   socialMedia: {
@@ -43,16 +63,33 @@ const UserSchema = new mongoose.Schema({
     }
   ],
 
-  wholesaleAvailable: { type: Boolean, default: false }, 
-  deliveryAvailable: { type: Boolean, default: false},
-  followers: [{type:mongoose.Schema.Types.ObjectId, ref: 'User'}],
-  following :[{type:mongoose.Schema.Types.ObjectId, ref: 'User'}],
+  wholesaleAvailable: { type: Boolean, default: false },
+  followers: [{type: mongoose.Schema.Types.ObjectId, ref: 'User'}],
+  following: [{type: mongoose.Schema.Types.ObjectId, ref: 'User'}],
 
-  stripeAccountId: {type: String, required:false },
-  isStripeAccountCreated: {type: Boolean, default :false}, 
-
-
-
+  // Payment information
+  stripeAccountId: { type: String },
+  paymentMethods: [{
+    type: { type: String, enum: ['card', 'bank_account'] },
+    isDefault: { type: Boolean, default: false },
+    last4: String,
+    brand: String, // for cards
+    expiryMonth: Number, // for cards
+    expiryYear: Number, // for cards
+    stripePaymentMethodId: String
+  }],
+  
+  // Business verification status
+  verification: {
+    isVerified: { type: Boolean, default: false },
+    documents: [{
+      type: { type: String, enum: ['id', 'address_proof', 'business_license'] },
+      status: { type: String, enum: ['pending', 'approved', 'rejected'] },
+      uploadedAt: Date
+    }]
+  }
+}, {
+  timestamps: true
 });
 
 module.exports = mongoose.model('User', UserSchema);
