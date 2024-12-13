@@ -2,11 +2,48 @@ const OpenContract = require('../models/OpenContract');
 const User = require('../models/User');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
+// Create a payment intent
+exports.createPaymentIntent = async (req, res) => {
+  try {
+    const { contractId } = req.body;
+
+    const contract = await OpenContract.findById(contractId)
+      .populate('buyer')
+      .populate('fulfillments.farmer');
+
+    if (!contract) {
+      return res.status(404).json({ error: 'Contract not found' });
+    }
+
+    const amount = contract.calculateTotalAmount();
+
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(amount * 100), // Convert to cents
+      currency: 'usd',
+      metadata: {
+        contractId,
+        buyerId: contract.buyer._id.toString(),
+        farmerId: contract.fulfillments[0].farmer._id.toString()
+      }
+    });
+
+    res.json({
+      clientSecret: paymentIntent.client_secret,
+      amount: amount
+    });
+  } catch (err) {
+    console.error('Error creating payment intent:', err);
+    res.status(500).json({
+      error: err.message || 'An error occurred while creating payment intent'
+    });
+  }
+};
+
 // Process payment for a contract (buyer)
 exports.processPayment = async (req, res) => {
   try {
     const { contractId } = req.params;
-    const { paymentMethodId } = req.body;
+    const { paymentIntentId } = req.body;
 
     const contract = await OpenContract.findById(contractId)
       .populate('buyer')
@@ -24,32 +61,19 @@ exports.processPayment = async (req, res) => {
       return res.status(400).json({ error: 'Payment has already been processed' });
     }
 
-    const amount = contract.calculateTotalAmount();
-    
     try {
-      // Update contract payment status
-      contract.paymentStatus = 'processing';
-      await contract.save();
-
-      // Create payment intent with Stripe
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(amount * 100), // Convert to cents
-        currency: 'usd',
-        payment_method: paymentMethodId,
-        confirm: true,
-        description: `Payment for contract ${contractId}`,
-        metadata: {
-          contractId,
-          buyerId: contract.buyer._id.toString(),
-          farmerId: contract.fulfillments[0].farmer._id.toString()
-        }
-      });
+      // Retrieve the payment intent
+      const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+      
+      if (paymentIntent.status !== 'succeeded') {
+        throw new Error('Payment has not been completed');
+      }
 
       // Update contract with payment details
       contract.paymentDetails = {
         transactionId: paymentIntent.id,
-        amount: amount,
-        processingFee: amount * 0.05, // 5% processing fee
+        amount: paymentIntent.amount / 100, // Convert from cents
+        processingFee: (paymentIntent.amount / 100) * 0.05, // 5% processing fee
         paymentDate: new Date(),
         paymentMethod: 'stripe'
       };
@@ -134,6 +158,51 @@ exports.processPayout = async (req, res) => {
   }
 };
 
+// Handle Stripe webhook
+exports.handleWebhook = async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  try {
+    const event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+
+    switch (event.type) {
+      case 'payment_intent.succeeded':
+        const paymentIntent = event.data.object;
+        // Handle successful payment
+        await handleSuccessfulPayment(paymentIntent);
+        break;
+      case 'transfer.paid':
+        const transfer = event.data.object;
+        // Handle successful payout
+        await handleSuccessfulPayout(transfer);
+        break;
+      default:
+        console.log(`Unhandled event type ${event.type}`);
+    }
+
+    res.json({ received: true });
+  } catch (err) {
+    console.error('Webhook error:', err);
+    res.status(400).json({ error: err.message });
+  }
+};
+
+// Get payment details
+exports.getPaymentDetails = async (req, res) => {
+  try {
+    const { paymentIntentId } = req.params;
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+    
+    res.json(paymentIntent);
+  } catch (err) {
+    console.error('Error retrieving payment details:', err);
+    res.status(500).json({
+      error: err.message || 'An error occurred while retrieving payment details'
+    });
+  }
+};
+
 // Get payment status
 exports.getPaymentStatus = async (req, res) => {
   try {
@@ -163,3 +232,47 @@ exports.getPayoutStatus = async (req, res) => {
     });
   }
 };
+
+// Helper function to handle successful payment
+async function handleSuccessfulPayment(paymentIntent) {
+  const { contractId } = paymentIntent.metadata;
+  
+  try {
+    const contract = await OpenContract.findById(contractId);
+    if (!contract) {
+      throw new Error('Contract not found');
+    }
+
+    contract.paymentStatus = 'completed';
+    contract.paymentDetails = {
+      transactionId: paymentIntent.id,
+      amount: paymentIntent.amount / 100,
+      processingFee: (paymentIntent.amount / 100) * 0.05,
+      paymentDate: new Date(),
+      paymentMethod: 'stripe'
+    };
+
+    await contract.save();
+  } catch (err) {
+    console.error('Error handling successful payment:', err);
+    throw err;
+  }
+}
+
+// Helper function to handle successful payout
+async function handleSuccessfulPayout(transfer) {
+  const { contractId } = transfer.metadata;
+  
+  try {
+    const contract = await OpenContract.findById(contractId);
+    if (!contract) {
+      throw new Error('Contract not found');
+    }
+
+    contract.status = 'completed';
+    await contract.save();
+  } catch (err) {
+    console.error('Error handling successful payout:', err);
+    throw err;
+  }
+}
