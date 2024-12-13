@@ -180,7 +180,7 @@ exports.createAuction = async (req, res) => {
       return res.status(403).json({ message: 'Unauthorized - you do not own this product' });
     }
 
-    // FIgure this out later when we start approving products
+    // FIgure this out later when we start approving products manually
     // if (product.status !== 'Approved') {
     //   return res.status(400).json({ message: 'Product must be approved before creating an auction' });
     // }
