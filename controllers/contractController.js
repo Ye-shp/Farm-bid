@@ -338,36 +338,66 @@ exports.getContractById = async (req, res) => {
     const userId = req.user.id;
     const userRole = req.user.role;
     
+    console.log('GetContractById request:', {
+      userId,
+      userRole,
+      contractId: req.params.contractId
+    });
+
     const contract = await OpenContract.findById(req.params.contractId)
       .populate('buyer', 'username email phone')
       .populate('fulfillments.farmer', 'username email phone');
 
     if (!contract) {
+      console.log('Contract not found:', req.params.contractId);
       return res.status(404).json({ error: 'Contract not found' });
     }
 
+    console.log('Contract found:', {
+      contractId: contract._id,
+      buyerId: contract.buyer._id.toString(),
+      status: contract.status,
+      fulfillments: contract.fulfillments.map(f => ({
+        farmerId: f.farmer._id.toString(),
+        status: f.status
+      }))
+    });
+
     // Check if user has permission to view this contract
+    const isOwner = contract.buyer._id.toString() === userId;
+    const isOpenContract = contract.status === 'open';
+    const hasFulfillment = contract.fulfillments?.some(f => 
+      f.farmer._id.toString() === userId
+    );
+
     const canView = 
-      userRole === 'buyer' && contract.buyer.toString() === userId || // Buyer who created the contract
-      userRole === 'farmer' && (
-        contract.status === 'open' || // Any farmer can view open contracts
-        contract.fulfillments?.some(f => f.farmer._id.toString() === userId) // Farmer who made an offer
-      );
+      (userRole === 'buyer' && isOwner) || // Buyer who created the contract
+      (userRole === 'farmer' && (isOpenContract || hasFulfillment)); // Farmer with valid access
+
+    console.log('Permission check:', {
+      userRole,
+      userId,
+      isOwner,
+      isOpenContract,
+      hasFulfillment,
+      canView
+    });
 
     if (!canView) {
-      console.log('Permission denied:', {
-        userRole,
-        userId,
-        contractBuyer: contract.buyer.toString(),
-        status: contract.status,
-        hasFulfillment: contract.fulfillments?.some(f => f.farmer._id.toString() === userId)
+      return res.status(403).json({ 
+        error: 'You do not have permission to view this contract',
+        details: {
+          userRole,
+          isOwner,
+          isOpenContract,
+          hasFulfillment
+        }
       });
-      return res.status(403).json({ error: 'You do not have permission to view this contract' });
     }
 
     res.json(contract);
   } catch (error) {
-    console.error('Error fetching contract:', error);
+    console.error('Error in getContractById:', error);
     res.status(500).json({ error: 'Error fetching contract details', details: error.message });
   }
 };
