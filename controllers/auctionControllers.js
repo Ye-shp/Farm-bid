@@ -109,15 +109,20 @@ exports.getFarmerAuctions = async (req, res) => {
     // Check for expired auctions first
     await checkAndUpdateExpiredAuctions();
 
-    const { status } = req.query; // Can be 'active', 'ended', or undefined for all
-    const query = { 'product.user': req.user.id };
-    if (status) {
-      query.status = status;
-    }
+    console.log('Farmer ID:', req.user.id); // Debug user ID
 
-    const auctions = await Auction.find(query).populate('product');
+    // Find auctions where the product's user matches the requesting farmer
+    const auctions = await Auction.find({})
+      .populate({
+        path: 'product',
+        match: { user: req.user.id }
+      });
+
+    console.log('Found auctions before filter:', auctions); // Debug all auctions
+
+    // Filter out auctions where product is null (due to populate match)
     const farmerAuctions = auctions
-      .filter(auction => auction.product && auction.product.user.toString() === req.user.id)
+      .filter(auction => auction.product !== null)
       .map(auction => {
         const highestBid = auction.bids.length > 0
           ? Math.max(...auction.bids.map(bid => bid.amount))
@@ -130,8 +135,10 @@ exports.getFarmerAuctions = async (req, res) => {
         };
       });
 
+    console.log('Filtered farmer auctions:', farmerAuctions); // Debug filtered auctions
     res.json(farmerAuctions);
   } catch (err) {
+    console.error('Error in getFarmerAuctions:', err); // Debug any errors
     res.status(500).json({ error: err.message });
   }
 };
