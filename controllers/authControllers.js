@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken');
 
 // Registration Controller
 exports.register = async (req, res) => {
-  const { username, email, password, role, location, phone } = req.body;
+  const { username, email, password, role, address, phone } = req.body;
 
   // Ensure that username is provided
   if (!username) {
@@ -28,10 +28,16 @@ exports.register = async (req, res) => {
       email,
       password: hashedPassword,
       role,
-      phone, 
-      location: {
-        latitude: location?.latitude || null,
-        longitude: location?.longitude || null
+      phone,
+      address: {
+        street: address.street,
+        city: address.city,
+        state: address.state,
+        zipCode: address.zipCode,
+        coordinates: {
+          lat: address.coordinates.lat,
+          lng: address.coordinates.lng
+        }
       }
     });
 

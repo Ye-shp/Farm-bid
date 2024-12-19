@@ -24,8 +24,26 @@ const UserSchema = new mongoose.Schema({
     state: { type: String, required: true },
     zipCode: { type: String, required: true },
     coordinates: {
-      lat: { type: Number, required: true },
-      lng: { type: Number, required: true }
+      lat: { 
+        type: Number, 
+        required: true,
+        min: -90,
+        max: 90,
+        validate: {
+          validator: Number.isFinite,
+          message: '{VALUE} is not a valid latitude'
+        }
+      },
+      lng: { 
+        type: Number, 
+        required: true,
+        min: -180,
+        max: 180,
+        validate: {
+          validator: Number.isFinite,
+          message: '{VALUE} is not a valid longitude'
+        }
+      }
     }
   },
 
