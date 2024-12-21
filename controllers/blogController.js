@@ -143,3 +143,18 @@ exports.getFeaturedFarms = async (req, res) => {
     res.status(500).json({ message: 'Error fetching featured farms', error: error.message });
   }
 };
+
+// Get all blogs by a specific user
+exports.getUserBlogs = async (req, res) => {
+  try {
+    const blogs = await Blog.find({ user: req.params.userId })
+      .populate('user', 'username role')
+      .sort({ createdAt: -1 });
+    res.json(blogs);
+  } catch (err) {
+    console.error('Error fetching user blogs:', err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+module.exports = exports;

@@ -1,7 +1,8 @@
 const express = require('express');
-const { createBlog, getBlogs, getBlogById, addCommentToBlogPost, likeBlogPost, getFeaturedFarms } = require('../controllers/blogController');
+const { createBlog, getBlogs, getBlogById, addCommentToBlogPost, likeBlogPost, getFeaturedFarms, getUserBlogs } = require('../controllers/blogController');
 const { authMiddleware } = require('../middleware/authMiddleware');
 const blogController = require('../controllers/blogController');
+const Blog = require('../models/Blog'); // Added Blog model import
 
 const router = express.Router();
 
@@ -24,15 +25,7 @@ router.post('/:id/comment', authMiddleware, addCommentToBlogPost);
 // Like or unlike a blog post
 router.post('/:id/like', authMiddleware, likeBlogPost);
 
-
 // Get all blogs by a specific user
-router.get('/user/:userId', async (req, res) => {
-    try {
-      const blogs = await Blog.find({ user: req.params.userId }).sort({ createdAt: -1 });
-      res.json(blogs);
-    } catch (err) {
-      res.status(500).json({ message: err.message });
-    }
-  });
-  
+router.get('/user/:userId', getUserBlogs); // Moved route handler to controller
+
 module.exports = router;
