@@ -21,9 +21,6 @@ exports.searchFarms = async (req, res) => {
     const userLongitude = longitude ? parseFloat(longitude) : null;
     const searchRadius = radius ? parseFloat(radius) : 50; // Default to 50 km
 
-    const deliveryFilter = delivery === 'true' ? true : delivery === 'false' ? false : null;
-    const wholesaleFilter = wholesale === 'true' ? true : wholesale === 'false' ? false : null;
-
     if (product && !allowedProducts.includes(product)) {
       return res.status(400).json({ error: 'Invalid product selected.' });
     }
@@ -74,13 +71,15 @@ exports.searchFarms = async (req, res) => {
         }
       }
 
-      if (deliveryFilter !== null && farmer.deliveryAvailable !== deliveryFilter) {
-        console.log('Farmer delivery mismatch:', farmer._id);
+      // Only filter by delivery if it was explicitly requested
+      if (delivery === 'true' && !farmer.deliveryAvailable) {
+        console.log('Farmer delivery not available:', farmer._id);
         return false;
       }
 
-      if (wholesaleFilter !== null && farmer.wholesaleAvailable !== wholesaleFilter) {
-        console.log('Farmer wholesale mismatch:', farmer._id);
+      // Only filter by wholesale if it was explicitly requested
+      if (wholesale === 'true' && !farmer.wholesaleAvailable) {
+        console.log('Farmer wholesale not available:', farmer._id);
         return false;
       }
 
