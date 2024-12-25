@@ -49,27 +49,28 @@ exports.searchFarms = async (req, res) => {
 
       // Only apply location filtering if searchAnywhere is false and coordinates are provided
       if (!searchAnywhere && userLatitude !== null && userLongitude !== null) {
+        // If farmer has location, check distance
         if (
-          !farmer.location ||
-          farmer.location.latitude === undefined ||
-          farmer.location.longitude === undefined
+          farmer.location &&
+          farmer.location.latitude !== undefined &&
+          farmer.location.longitude !== undefined
         ) {
-          console.log('Farmer missing location:', farmer._id);
-          return false;
-        }
+          const farmerLatitude = parseFloat(farmer.location.latitude);
+          const farmerLongitude = parseFloat(farmer.location.longitude);
 
-        const farmerLatitude = parseFloat(farmer.location.latitude);
-        const farmerLongitude = parseFloat(farmer.location.longitude);
-
-        const distance = calculateDistance(
-          userLatitude,
-          userLongitude,
-          farmerLatitude,
-          farmerLongitude
-        );
-        if (distance > searchRadius) {
-          console.log('Farmer outside radius:', farmer._id, 'distance:', distance);
-          return false;
+          const distance = calculateDistance(
+            userLatitude,
+            userLongitude,
+            farmerLatitude,
+            farmerLongitude
+          );
+          
+          if (distance > searchRadius) {
+            console.log('Farmer outside radius:', farmer._id, 'distance:', distance);
+            return false;
+          }
+        } else {
+          console.log('Farmer missing location:', farmer._id, '- including in results');
         }
       }
 
