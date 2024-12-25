@@ -86,23 +86,8 @@ exports.searchFarms = async (req, res) => {
       return true;
     });
 
-    // Transform the data to include user information at the top level
-    const transformedProducts = filteredProducts.map(product => {
-      const { user, ...productData } = product.toObject();
-      return {
-        ...productData,
-        userId: user._id,
-        farmName: user.farmName,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        deliveryAvailable: user.deliveryAvailable,
-        wholesaleAvailable: user.wholesaleAvailable,
-        location: user.location
-      };
-    });
-
-    console.log('Final filtered products:', transformedProducts.length);
-    res.json(transformedProducts);
+    console.log('Final filtered products:', filteredProducts.length);
+    res.json(filteredProducts);
   } catch (error) {
     console.error('Error in searchFarms:', error);
     res.status(500).json({ error: 'Server error during search.' });
