@@ -13,8 +13,10 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 }
 
 exports.searchFarms = async (req, res) => {
-  const { product, category, delivery, wholesale, latitude, longitude, radius = 50 } = req.query;
+  const { product, category, delivery, wholesale, latitude, longitude, radius = 50, searchAnywhere } = req.query;
   try {
+    console.log('Search params:', { product, category, delivery, wholesale, latitude, longitude, radius, searchAnywhere });
+    
     const userLatitude = latitude ? parseFloat(latitude) : null;
     const userLongitude = longitude ? parseFloat(longitude) : null;
     const searchRadius = radius ? parseFloat(radius) : 50; // Default to 50 km
@@ -31,24 +33,28 @@ exports.searchFarms = async (req, res) => {
     }
 
     const productQuery = {
+      status: 'Approved',
       ...(product && { $or: [{ title: product }, { customProduct: product }] }),
       ...(category && { category }),
     };
 
+    console.log('Product query:', productQuery);
+
     const products = await Product.find(productQuery).populate('user');
+    console.log('Found products before filtering:', products.length);
 
     const filteredProducts = products.filter((product) => {
       const farmer = product.user;
       if (!farmer) return false;
 
-
-      if (userLatitude !== null && userLongitude !== null) {
+      // Only apply location filtering if searchAnywhere is false and coordinates are provided
+      if (!searchAnywhere && userLatitude !== null && userLongitude !== null) {
         if (
           !farmer.location ||
           farmer.location.latitude === undefined ||
           farmer.location.longitude === undefined
         ) {
-
+          console.log('Farmer missing location:', farmer._id);
           return false;
         }
 
@@ -61,21 +67,26 @@ exports.searchFarms = async (req, res) => {
           farmerLatitude,
           farmerLongitude
         );
-        if (distance > searchRadius) return false;
+        if (distance > searchRadius) {
+          console.log('Farmer outside radius:', farmer._id, 'distance:', distance);
+          return false;
+        }
       }
 
-
       if (deliveryFilter !== null && farmer.deliveryAvailable !== deliveryFilter) {
+        console.log('Farmer delivery mismatch:', farmer._id);
         return false;
       }
 
       if (wholesaleFilter !== null && farmer.wholesaleAvailable !== wholesaleFilter) {
+        console.log('Farmer wholesale mismatch:', farmer._id);
         return false;
       }
 
       return true;
     });
 
+    console.log('Final filtered products:', filteredProducts.length);
     res.json(filteredProducts);
   } catch (error) {
     console.error('Error in searchFarms:', error);
