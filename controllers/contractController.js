@@ -108,13 +108,14 @@ exports.createOpenContract = async (req, res) => {
     }
 
     // Validate delivery method if provided
-    if (deliveryMethod && !['buyer_pickup', 'seller_delivery'].includes(deliveryMethod)) {
-      return res.status(400).json({ error: 'Invalid delivery method.' });
+    const validDeliveryMethods = ['buyer_pickup', 'farmer_delivery', 'third_party'];
+    if (deliveryMethod && !validDeliveryMethods.includes(deliveryMethod)) {
+      return res.status(400).json({ error: 'Invalid delivery method. Must be one of: buyer_pickup, farmer_delivery, or third_party.' });
     }
 
     // Validate delivery address if not buyer pickup
-    if (deliveryMethod === 'seller_delivery' && (!deliveryAddress || !deliveryAddress.street || !deliveryAddress.city || !deliveryAddress.state || !deliveryAddress.zipCode)) {
-      return res.status(400).json({ error: 'Complete delivery address is required for seller delivery.' });
+    if (deliveryMethod !== 'buyer_pickup' && (!deliveryAddress || !deliveryAddress.street || !deliveryAddress.city || !deliveryAddress.state || !deliveryAddress.zipCode)) {
+      return res.status(400).json({ error: 'Complete delivery address is required for farmer delivery or third party delivery.' });
     }
 
     const newContract = new OpenContract({
