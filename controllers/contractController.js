@@ -162,13 +162,11 @@ exports.getOpenContracts = async (req, res) => {
 // Fulfill an open contract (for farmers)
 exports.fulfillOpenContract = async (req, res) => {
   try {
-    console.log('Fulfillment request:', {
-      contractId: req.params.contractId,
-      farmerId: req.user.id,
-      body: req.body
-    });
+    const { contractId } = req.params;
+    const { price, notes, deliveryMethod, deliveryFee, estimatedDeliveryDate } = req.body;
+    const farmerId = req.user.id;
 
-    const contract = await OpenContract.findById(req.params.contractId);
+    const contract = await OpenContract.findById(contractId);
     if (!contract) {
       return res.status(404).json({ error: 'Contract not found' });
     }
@@ -180,14 +178,13 @@ exports.fulfillOpenContract = async (req, res) => {
 
     // Check if farmer has already made an offer
     const existingFulfillment = contract.fulfillments.find(
-      f => f.farmer.toString() === req.user.id
+      f => f.farmer.toString() === farmerId
     );
     if (existingFulfillment) {
       return res.status(400).json({ error: 'You have already made an offer on this contract' });
     }
 
     // Validate price
-    const price = parseFloat(req.body.price);
     if (isNaN(price) || price <= 0) {
       return res.status(400).json({ error: 'Invalid price' });
     }
@@ -197,9 +194,12 @@ exports.fulfillOpenContract = async (req, res) => {
 
     // Add fulfillment
     contract.fulfillments.push({
-      farmer: req.user.id,
-      price: price,
-      notes: req.body.notes || '',
+      farmer: farmerId,
+      price,
+      notes: notes || '',
+      deliveryMethod,
+      deliveryFee: deliveryFee || 0,
+      estimatedDeliveryDate,
       status: 'pending'
     });
 
@@ -226,26 +226,32 @@ exports.acceptFulfillment = async (req, res) => {
   try {
     const contract = await OpenContract.findById(contractId);
     if (!contract) {
-      return res.status(404).json({ message: 'Contract not found' });
+      return res.status(404).json({ error: 'Contract not found' });
     }
 
     if (contract.buyer.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'Not authorized to accept fulfillments for this contract' });
+      return res.status(403).json({ error: 'Not authorized to accept fulfillments for this contract' });
     }
 
     const fulfillment = contract.fulfillments.id(fulfillmentId);
     if (!fulfillment) {
-      return res.status(404).json({ message: 'Fulfillment offer not found' });
+      return res.status(404).json({ error: 'Fulfillment offer not found' });
+    }
+
+    if (fulfillment.status !== 'pending') {
+      return res.status(400).json({ error: 'This fulfillment offer is no longer pending' });
     }
 
     // Update fulfillment status
     fulfillment.status = 'accepted';
+    fulfillment.acceptedAt = new Date();
     
     // Set winning fulfillment
     contract.winningFulfillment = {
       farmer: fulfillment.farmer,
-      quantity: fulfillment.quantity,
       price: fulfillment.price,
+      deliveryMethod: fulfillment.deliveryMethod,
+      deliveryFee: fulfillment.deliveryFee,
       acceptedAt: new Date()
     };
 
@@ -259,13 +265,14 @@ exports.acceptFulfillment = async (req, res) => {
       await createNotification(
         farmer._id,
         `Your fulfillment offer for ${contract.productType} has been accepted!`,
-        'fulfillment'
+        'fulfillment_accepted'
       );
 
+      // Send SMS if phone number is available
       if (farmer.phone) {
         try {
           await client.messages.create({
-            body: `Your offer to fulfill the contract for ${contract.productType} has been accepted! Log in to Elipae to view details.`,
+            body: `Your offer to fulfill the contract for ${contract.productType} has been accepted! Log in to view details.`,
             to: farmer.phone,
             messagingServiceSid,
           });
@@ -276,8 +283,60 @@ exports.acceptFulfillment = async (req, res) => {
     }
 
     res.json(contract);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  } catch (error) {
+    console.error('Error in acceptFulfillment:', error);
+    res.status(500).json({ error: 'Failed to accept fulfillment', details: error.message });
+  }
+};
+
+// Complete fulfillment (for farmers)
+exports.completeFulfillment = async (req, res) => {
+  const { contractId, fulfillmentId } = req.params;
+  const { deliveryNotes, trackingNumber } = req.body;
+
+  try {
+    const contract = await OpenContract.findById(contractId);
+    if (!contract) {
+      return res.status(404).json({ error: 'Contract not found' });
+    }
+
+    const fulfillment = contract.fulfillments.id(fulfillmentId);
+    if (!fulfillment) {
+      return res.status(404).json({ error: 'Fulfillment not found' });
+    }
+
+    if (fulfillment.farmer.toString() !== req.user.id) {
+      return res.status(403).json({ error: 'Not authorized to complete this fulfillment' });
+    }
+
+    if (fulfillment.status !== 'accepted') {
+      return res.status(400).json({ error: 'Only accepted fulfillments can be completed' });
+    }
+
+    // Update fulfillment
+    fulfillment.status = 'completed';
+    fulfillment.completedAt = new Date();
+    fulfillment.actualDeliveryDate = new Date();
+    fulfillment.deliveryNotes = deliveryNotes;
+    fulfillment.trackingNumber = trackingNumber;
+
+    // Update contract and winning fulfillment
+    contract.status = 'completed';
+    contract.winningFulfillment.completedAt = new Date();
+
+    await contract.save();
+
+    // Notify the buyer
+    await createNotification(
+      contract.buyer,
+      `The contract for ${contract.productType} has been marked as completed by the farmer`,
+      'fulfillment_completed'
+    );
+
+    res.json(contract);
+  } catch (error) {
+    console.error('Error in completeFulfillment:', error);
+    res.status(500).json({ error: 'Failed to complete fulfillment', details: error.message });
   }
 };
 
