@@ -5,6 +5,7 @@ const {
     getOpenContracts, 
     fulfillOpenContract, 
     acceptFulfillment,
+    completeFulfillment,
     getUserContracts,
     getContractById
 } = require('../controllers/contractController');
@@ -29,5 +30,8 @@ router.post('/:contractId/fulfill', authMiddleware, fulfillOpenContract);
 
 // Accept a fulfillment offer (for buyers)
 router.post('/:contractId/fulfillments/:fulfillmentId/accept', authMiddleware, acceptFulfillment);
+
+// Complete a fulfillment (for farmers)
+router.post('/:contractId/fulfillments/:fulfillmentId/complete', authMiddleware, completeFulfillment);
 
 module.exports = router;

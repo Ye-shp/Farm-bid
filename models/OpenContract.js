@@ -68,11 +68,13 @@ const openContractSchema = new mongoose.Schema({
     },
     price: {
       type: Number,
-      required: true
+      required: true,
+      min: 0
     },
+    notes: String,
     status: {
       type: String,
-      enum: ['pending', 'accepted', 'rejected'],
+      enum: ['pending', 'accepted', 'rejected', 'completed'],
       default: 'pending'
     },
     deliveryMethod: {
@@ -82,14 +84,31 @@ const openContractSchema = new mongoose.Schema({
     },
     deliveryFee: {
       type: Number,
-      default: 0
+      default: 0,
+      min: 0
     },
     estimatedDeliveryDate: Date,
+    actualDeliveryDate: Date,
+    trackingNumber: String,
+    deliveryNotes: String,
     createdAt: {
       type: Date,
       default: Date.now
-    }
+    },
+    acceptedAt: Date,
+    completedAt: Date
   }],
+  winningFulfillment: {
+    farmer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    price: Number,
+    deliveryMethod: String,
+    deliveryFee: Number,
+    acceptedAt: Date,
+    completedAt: Date
+  },
   notifiedFarmers: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
