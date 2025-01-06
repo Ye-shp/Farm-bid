@@ -99,13 +99,11 @@ const UserSchema = new mongoose.Schema({
   
   // Business verification status
   verification: {
-    isVerified: { type: Boolean, default: false },
-    documents: [{
-      type: { type: String, enum: ['id', 'address_proof', 'business_license'] },
-      status: { type: String, enum: ['pending', 'approved', 'rejected'] },
-      uploadedAt: Date
-    }]
-  }
+    status: { type: String, enum: ['pending', 'verified', 'rejected'], default: 'pending' },
+    documents: [String]
+  },
+  resetPasswordToken: String,
+  resetPasswordExpires: Date
 }, {
   timestamps: true
 });
