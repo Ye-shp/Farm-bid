@@ -29,22 +29,55 @@ exports.forgotPassword = async (req, res) => {
     const msg = {
       to: user.email,
       from: process.env.SENDGRID_FROM_EMAIL, // Verified sender email
-      subject: 'Farm Bid - Password Reset Request',
+      subject: 'Elipae - Password Reset Request',
       html: `
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px; font-family: Arial, sans-serif;">
-          <h1 style="color: #2E7D32; text-align: center;">Password Reset Request</h1>
-          <p>Hello,</p>
-          <p>You have requested to reset your password for your Farm Bid account.</p>
-          <p>Please click the button below to reset your password. This link will expire in 1 hour.</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${resetUrl}" style="background-color: #2E7D32; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">Reset Password</a>
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px; font-family: Arial, sans-serif; background-color: #f9f9f9;">
+          <div style="background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <h1 style="color: #2E7D32; margin: 0;">Password Reset Request</h1>
+            </div>
+            
+            <p style="font-size: 16px; color: #333;">Hello,</p>
+            
+            <p style="font-size: 16px; color: #333; line-height: 1.5;">
+              We received a request to reset your password for your Elipae account. 
+              Don't worry, we're here to help you regain access to your account.
+            </p>
+
+            <div style="text-align: center; margin: 35px 0;">
+              <a href="${resetUrl}" 
+                style="background-color: #2E7D32; 
+                       color: white; 
+                       padding: 15px 30px; 
+                       text-decoration: none; 
+                       border-radius: 5px; 
+                       font-weight: bold;
+                       display: inline-block;">
+                Reset Your Password
+              </a>
+            </div>
+
+            <p style="font-size: 16px; color: #333; line-height: 1.5;">
+              This link will expire in 1 hour for security reasons. If you didn't request this password reset, 
+              please ignore this email or contact our support team if you have concerns.
+            </p>
+
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
+              <p style="font-size: 14px; color: #666; margin: 0;">
+                Best regards,<br>
+                The Elipae Team
+              </p>
+            </div>
           </div>
-          <p>If you did not request this password reset, please ignore this email and your password will remain unchanged.</p>
-          <p>Best regards,<br>The Farm Bid Team</p>
-          <hr style="margin: 20px 0; border: none; border-top: 1px solid #eee;">
-          <p style="color: #666; font-size: 12px; text-align: center;">
-            This is an automated email, please do not reply.
-          </p>
+
+          <div style="text-align: center; margin-top: 20px;">
+            <p style="color: #666; font-size: 12px;">
+              This is an automated email. Please do not reply to this message.
+            </p>
+            <p style="color: #666; font-size: 12px;">
+              If you have any questions, please contact our support team.
+            </p>
+          </div>
         </div>
       `
     };
@@ -85,18 +118,53 @@ exports.resetPassword = async (req, res) => {
     const msg = {
       to: user.email,
       from: process.env.SENDGRID_FROM_EMAIL,
-      subject: 'Farm Bid - Password Reset Successful',
+      subject: 'Elipae - Password Reset Successful',
       html: `
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px; font-family: Arial, sans-serif;">
-          <h1 style="color: #2E7D32; text-align: center;">Password Reset Successful</h1>
-          <p>Hello,</p>
-          <p>Your password has been successfully reset.</p>
-          <p>If you did not make this change, please contact our support team immediately.</p>
-          <p>Best regards,<br>The Farm Bid Team</p>
-          <hr style="margin: 20px 0; border: none; border-top: 1px solid #eee;">
-          <p style="color: #666; font-size: 12px; text-align: center;">
-            This is an automated email, please do not reply.
-          </p>
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px; font-family: Arial, sans-serif; background-color: #f9f9f9;">
+          <div style="background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <h1 style="color: #2E7D32; margin: 0;">Password Reset Successful</h1>
+            </div>
+            
+            <p style="font-size: 16px; color: #333;">Hello,</p>
+            
+            <p style="font-size: 16px; color: #333; line-height: 1.5;">
+              Your password has been successfully reset. You can now log in to your account with your new password.
+            </p>
+
+            <div style="text-align: center; margin: 35px 0;">
+              <a href="${process.env.FRONTEND_URL}/login" 
+                style="background-color: #2E7D32; 
+                       color: white; 
+                       padding: 15px 30px; 
+                       text-decoration: none; 
+                       border-radius: 5px; 
+                       font-weight: bold;
+                       display: inline-block;">
+                Go to Login
+              </a>
+            </div>
+
+            <p style="font-size: 16px; color: #333; line-height: 1.5;">
+              If you did not make this change, please contact our support team immediately.
+            </p>
+
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
+              <p style="font-size: 14px; color: #666; margin: 0;">
+                Best regards,<br>
+                The Elipae Team
+              </p>
+            </div>
+          </div>
+
+          <div style="text-align: center; margin-top: 20px;">
+            <p style="color: #666; font-size: 12px;">
+              This is an automated email. Please do not reply to this message.
+            </p>
+            <p style="color: #666; font-size: 12px;">
+              If you have any questions, please contact our support team.
+            </p>
+          </div>
         </div>
       `
     };
