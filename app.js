@@ -26,7 +26,8 @@ const payoutRoute = require('./routes/payoutRoute');
 const contractRoute = require('./routes/contractRoute');
 const transactionRoute = require('./routes/transactionRoute');
 const searchRoute = require ('./routes/searchRoute');
-const paymentRoute = require('./routes/paymentRoute'); // Added paymentRoute
+const paymentRoute = require('./routes/paymentRoute'); 
+const reviewRoute = require('./routes/reviews'); // Added reviewRoute
 
 //farmer and buyer routes for location-based matching
 const farmerRoute = require('./routes/farmerRoute');
@@ -43,7 +44,8 @@ app.use('/api/payout', payoutRoute);
 app.use('/api/open-contracts', contractRoute); 
 app.use ('/api/transactions', transactionRoute);
 app.use ('/api/search', searchRoute);
-app.use('/api/payments', paymentRoute); // Added payment route
+app.use('/api/payments', paymentRoute); 
+app.use('/api/reviews', reviewRoute); // Added reviews route
 
 // Use the new farmer and buyer routes
 app.use('/api/farmers', farmerRoute);
