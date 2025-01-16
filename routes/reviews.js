@@ -1,12 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const Review = require('../models/Review');
-const auth = require('../middleware/authMiddleware');
+const { authMiddleware } = require('../middleware/authMiddleware');
 
 // Get all reviews for a user
-router.get('/:userId', (req, res, next) => {
-  auth(req, res, next);
-}, async (req, res) => {
+router.get('/:userId', authMiddleware, async (req, res) => {
   try {
     const reviews = await Review.find({ reviewedUser: req.params.userId })
       .populate('reviewer', 'username profileImage')
@@ -26,9 +24,7 @@ router.get('/:userId', (req, res, next) => {
 });
 
 // Create a new review
-router.post('/:userId', (req, res, next) => {
-  auth(req, res, next);
-}, async (req, res) => {
+router.post('/:userId', authMiddleware, async (req, res) => {
   try {
     // Check if user is trying to review themselves
     if (req.params.userId === req.user._id.toString()) {
@@ -62,9 +58,7 @@ router.post('/:userId', (req, res, next) => {
 });
 
 // Update a review
-router.put('/:reviewId', (req, res, next) => {
-  auth(req, res, next);
-}, async (req, res) => {
+router.put('/:reviewId', authMiddleware, async (req, res) => {
   try {
     const review = await Review.findOne({
       _id: req.params.reviewId,
@@ -88,9 +82,7 @@ router.put('/:reviewId', (req, res, next) => {
 });
 
 // Delete a review
-router.delete('/:reviewId', (req, res, next) => {
-  auth(req, res, next);
-}, async (req, res) => {
+router.delete('/:reviewId', authMiddleware, async (req, res) => {
   try {
     const review = await Review.findOne({
       _id: req.params.reviewId,
