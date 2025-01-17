@@ -1,6 +1,25 @@
 const express = require('express');
 const router = express.Router();
 const Review = require('../models/Review');
+const { authMiddleware } = require('../middleware/authMiddleware');
+const jwt = require('jsonwebtoken');
+
+// Helper function to get user from token
+const getUserFromToken = (req) => {
+  try {
+    const authHeader = req.header('Authorization');
+    if (!authHeader) return null;
+    
+    const token = authHeader.split(' ')[1];
+    if (!token) return null;
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    return decoded;
+  } catch (error) {
+    console.error('Error decoding token:', error);
+    return null;
+  }
+};
 
 // Get all reviews for a user
 router.get('/:userId', async (req, res) => {
@@ -24,13 +43,25 @@ router.get('/:userId', async (req, res) => {
 });
 
 // Create a new review
-router.post('/:userId', async (req, res) => {
+router.post('/:userId', authMiddleware, async (req, res) => {
   try {
-    // For now, we'll use a mock user ID for testing
-    const mockUserId = '123456789012345678901234'; // This should be a valid ObjectId
+    // Check if user is trying to review themselves
+    if (req.params.userId === req.user._id) {
+      return res.status(400).json({ message: "You cannot review yourself" });
+    }
+
+    // Check if user has already reviewed this profile
+    const existingReview = await Review.findOne({
+      reviewer: req.user._id,
+      reviewedUser: req.params.userId
+    });
+
+    if (existingReview) {
+      return res.status(400).json({ message: "You have already reviewed this profile" });
+    }
 
     const review = new Review({
-      reviewer: mockUserId,
+      reviewer: req.user._id,
       reviewedUser: req.params.userId,
       rating: req.body.rating,
       content: req.body.content
@@ -47,12 +78,15 @@ router.post('/:userId', async (req, res) => {
 });
 
 // Update a review
-router.put('/:reviewId', async (req, res) => {
+router.put('/:reviewId', authMiddleware, async (req, res) => {
   try {
-    const review = await Review.findById(req.params.reviewId);
+    const review = await Review.findOne({
+      _id: req.params.reviewId,
+      reviewer: req.user._id
+    });
 
     if (!review) {
-      return res.status(404).json({ message: "Review not found" });
+      return res.status(404).json({ message: "Review not found or you're not authorized to edit it" });
     }
 
     review.rating = req.body.rating || review.rating;
@@ -69,12 +103,15 @@ router.put('/:reviewId', async (req, res) => {
 });
 
 // Delete a review
-router.delete('/:reviewId', async (req, res) => {
+router.delete('/:reviewId', authMiddleware, async (req, res) => {
   try {
-    const review = await Review.findById(req.params.reviewId);
+    const review = await Review.findOne({
+      _id: req.params.reviewId,
+      reviewer: req.user._id
+    });
 
     if (!review) {
-      return res.status(404).json({ message: "Review not found" });
+      return res.status(404).json({ message: "Review not found or you're not authorized to delete it" });
     }
 
     await review.deleteOne();
