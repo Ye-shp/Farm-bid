@@ -2,38 +2,23 @@ const express = require('express');
 const router = express.Router();
 const Review = require('../models/Review');
 const { authMiddleware } = require('../middleware/authMiddleware');
-const jwt = require('jsonwebtoken');
-
-// Helper function to get user from token
-const getUserFromToken = (req) => {
-  try {
-    const authHeader = req.header('Authorization');
-    if (!authHeader) return null;
-    
-    const token = authHeader.split(' ')[1];
-    if (!token) return null;
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    return decoded;
-  } catch (error) {
-    console.error('Error decoding token:', error);
-    return null;
-  }
-};
 
 // Get all reviews for a user
-router.get('/:userId', async (req, res) => {
+router.get('/:userId', authMiddleware, async (req, res) => {
   try {
     const reviews = await Review.find({ reviewedUser: req.params.userId })
       .populate('reviewer', 'username profileImage')
       .sort({ createdAt: -1 });
 
-    // Calculate average rating
-    const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
-    const averageRating = reviews.length > 0 ? totalRating / reviews.length : 0;
+    // Filter out reviews with invalid reviewers (where populate failed)
+    const validReviews = reviews.filter(review => review.reviewer && review.reviewer.username);
+
+    // Calculate average rating using only valid reviews
+    const totalRating = validReviews.reduce((sum, review) => sum + review.rating, 0);
+    const averageRating = validReviews.length > 0 ? totalRating / validReviews.length : 0;
 
     res.json({
-      reviews: reviews || [],
+      reviews: validReviews,
       averageRating: Math.round(averageRating * 2) / 2 // Round to nearest 0.5
     });
   } catch (error) {
@@ -46,13 +31,13 @@ router.get('/:userId', async (req, res) => {
 router.post('/:userId', authMiddleware, async (req, res) => {
   try {
     // Check if user is trying to review themselves
-    if (req.params.userId === req.user._id) {
+    if (req.params.userId === req.user.id) {
       return res.status(400).json({ message: "You cannot review yourself" });
     }
 
     // Check if user has already reviewed this profile
     const existingReview = await Review.findOne({
-      reviewer: req.user._id,
+      reviewer: req.user.id,
       reviewedUser: req.params.userId
     });
 
@@ -61,7 +46,7 @@ router.post('/:userId', authMiddleware, async (req, res) => {
     }
 
     const review = new Review({
-      reviewer: req.user._id,
+      reviewer: req.user.id,
       reviewedUser: req.params.userId,
       rating: req.body.rating,
       content: req.body.content
@@ -82,7 +67,7 @@ router.put('/:reviewId', authMiddleware, async (req, res) => {
   try {
     const review = await Review.findOne({
       _id: req.params.reviewId,
-      reviewer: req.user._id
+      reviewer: req.user.id
     });
 
     if (!review) {
@@ -107,7 +92,7 @@ router.delete('/:reviewId', authMiddleware, async (req, res) => {
   try {
     const review = await Review.findOne({
       _id: req.params.reviewId,
-      reviewer: req.user._id
+      reviewer: req.user.id
     });
 
     if (!review) {
