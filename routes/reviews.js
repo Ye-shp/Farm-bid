@@ -3,8 +3,8 @@ const router = express.Router();
 const Review = require('../models/Review');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
-// Get all reviews for a user
-router.get('/:userId', authMiddleware, async (req, res) => {
+// Get all reviews for a user (public endpoint)
+router.get('/:userId', async (req, res) => {
   try {
     const reviews = await Review.find({ reviewedUser: req.params.userId })
       .populate('reviewer', 'username profileImage')
