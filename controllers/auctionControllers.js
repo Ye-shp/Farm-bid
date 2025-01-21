@@ -1,5 +1,6 @@
 const Auction = require('../models/Auctions');
-const Product = require('../models/Product');  
+const { Product } = require('../models/Product');  // Destructure Product from the exports
+const mongoose = require('mongoose');  
 const Notification = require('../models/Notification');
 const stripe = require('../config/stripeconfig');
 
@@ -427,14 +428,22 @@ exports.acceptBid = async (req, res) => {
       auction.endTime = new Date(); // Set end time to now since auction is ended
       await auction.save();
 
-      // Update product availability
-      await Product.findByIdAndUpdate(auction.product._id, {
-        $set: {
-          isAvailable: false,
-          lastSoldPrice: winningBid.amount,
-          lastSoldDate: new Date()
-        }
-      });
+      // Update product availability using mongoose model
+      const updatedProduct = await Product.findOneAndUpdate(
+        { _id: auction.product._id },
+        {
+          $set: {
+            isAvailable: false,
+            lastSoldPrice: winningBid.amount,
+            lastSoldDate: new Date()
+          }
+        },
+        { new: true }  // Return the updated document
+      );
+
+      if (!updatedProduct) {
+        console.warn('Product not found or not updated:', auction.product._id);
+      }
 
       // Notify the winner
       const winnerNotification = new Notification({
