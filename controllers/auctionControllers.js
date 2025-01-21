@@ -1,5 +1,5 @@
 const Auction = require('../models/Auctions');
-const { Product }= require('../models/Product');  
+const Product = require('../models/Product');  
 const Notification = require('../models/Notification');
 const stripe = require('../config/stripeconfig');
 
@@ -341,14 +341,17 @@ exports.acceptBid = async (req, res) => {
     const farmerId = req.user._id;
 
     // Find the auction and populate product details
-    const auction = await Auction.findById(auctionId).populate('product');
+    const auction = await Auction.findById(auctionId).populate({
+      path: 'product',
+      populate: { path: 'user' }
+    });
     
     if (!auction) {
       return res.status(404).json({ success: false, message: 'Auction not found' });
     }
 
     // Verify that the farmer owns this auction
-    if (auction.product.user.toString() !== farmerId.toString()) {
+    if (auction.product.user._id.toString() !== farmerId.toString()) {
       return res.status(403).json({ success: false, message: 'Not authorized to accept bids for this auction' });
     }
 
@@ -363,29 +366,27 @@ exports.acceptBid = async (req, res) => {
       return res.status(400).json({ success: false, message: 'No matching bid found for the accepted price' });
     }
 
-    // Create a payment intent for the winning amount
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: winningBid.amount * 100, // Convert to cents
-      currency: 'usd',
-      automatic_payment_methods: { enabled: true },
-      metadata: {
-        auctionId: auction._id.toString(),
-        productId: auction.product._id.toString()
-      }
-    });
-
-    // Update auction status and save winning bid info
-    auction.status = 'completed';
-    auction.winningBid = winningBid;
-    auction.paymentIntentId = paymentIntent.id;
-    auction.acceptedAt = new Date();
-    auction.endTime = new Date(); // Set end time to now since auction is completed
-    await auction.save();
-
-    // Move auction to completed collection or archive if exists
     try {
-      // Remove from active auctions query results automatically since status is now 'completed'
-      // Update product availability if needed
+      // Create a payment intent for the winning amount
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(winningBid.amount * 100), // Convert to cents and ensure it's an integer
+        currency: 'usd',
+        automatic_payment_methods: { enabled: true },
+        metadata: {
+          auctionId: auction._id.toString(),
+          productId: auction.product._id.toString()
+        }
+      });
+
+      // Update auction status and save winning bid info
+      auction.status = 'completed';
+      auction.winningBid = winningBid;
+      auction.paymentIntentId = paymentIntent.id;
+      auction.acceptedAt = new Date();
+      auction.endTime = new Date(); // Set end time to now since auction is completed
+      await auction.save();
+
+      // Update product availability
       await Product.findByIdAndUpdate(auction.product._id, {
         $set: {
           isAvailable: false,
@@ -393,56 +394,65 @@ exports.acceptBid = async (req, res) => {
           lastSoldDate: new Date()
         }
       });
-    } catch (error) {
-      console.error('Error updating product status:', error);
-      // Continue execution as this is not critical
-    }
 
-    // Notify the winner
-    const winnerNotification = new Notification({
-      user: winningBid.user,
-      message: `Congratulations! The farmer has accepted your bid of $${winningBid.amount} for "${auction.product.title}". Please complete your payment.`,
-      type: 'bid_accepted',
-      metadata: {
-        auctionId: auction._id,
-        paymentIntentClientSecret: paymentIntent.client_secret
+      // Notify the winner
+      const winnerNotification = new Notification({
+        user: winningBid.user,
+        message: `Congratulations! The farmer has accepted your bid of $${winningBid.amount} for "${auction.product.title}". Please complete your payment.`,
+        type: 'bid_accepted',
+        metadata: {
+          auctionId: auction._id,
+          paymentIntentClientSecret: paymentIntent.client_secret
+        }
+      });
+      await winnerNotification.save();
+
+      // Notify other bidders
+      const otherBids = auction.bids.filter(bid => bid.user.toString() !== winningBid.user.toString());
+      const otherBidderNotifications = otherBids.map(bid => ({
+        user: bid.user,
+        message: `The auction for "${auction.product.title}" has ended. Your bid was not accepted.`,
+        type: 'bid_not_accepted',
+        metadata: { auctionId: auction._id }
+      }));
+      
+      if (otherBidderNotifications.length > 0) {
+        await Notification.insertMany(otherBidderNotifications);
       }
-    });
-    await winnerNotification.save();
 
-    // Notify other bidders
-    const otherBids = auction.bids.filter(bid => bid.user.toString() !== winningBid.user.toString());
-    const otherBidderNotifications = otherBids.map(bid => ({
-      user: bid.user,
-      message: `The auction for "${auction.product.title}" has ended. Your bid was not accepted.`,
-      type: 'bid_not_accepted',
-      metadata: { auctionId: auction._id }
-    }));
-    
-    if (otherBidderNotifications.length > 0) {
-      await Notification.insertMany(otherBidderNotifications);
+      // Notify the farmer
+      const farmerNotification = new Notification({
+        user: farmerId,
+        message: `You have successfully accepted a bid of $${winningBid.amount} for "${auction.product.title}". The buyer will be notified to complete the payment.`,
+        type: 'bid_accepted_by_farmer',
+        metadata: { auctionId: auction._id }
+      });
+      await farmerNotification.save();
+
+      res.json({
+        success: true,
+        message: 'Bid accepted successfully',
+        auction: {
+          ...auction.toObject(),
+          paymentIntentClientSecret: paymentIntent.client_secret
+        }
+      });
+
+    } catch (stripeError) {
+      console.error('Stripe or database error:', stripeError);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Error processing payment or updating auction status',
+        error: stripeError.message
+      });
     }
-
-    // Notify the farmer
-    const farmerNotification = new Notification({
-      user: farmerId,
-      message: `You have successfully accepted a bid of $${winningBid.amount} for "${auction.product.title}". The buyer will be notified to complete the payment.`,
-      type: 'bid_accepted_by_farmer',
-      metadata: { auctionId: auction._id }
-    });
-    await farmerNotification.save();
-
-    res.json({
-      success: true,
-      message: 'Bid accepted successfully',
-      auction: {
-        ...auction.toObject(),
-        paymentIntentClientSecret: paymentIntent.client_secret
-      }
-    });
 
   } catch (error) {
     console.error('Error accepting bid:', error);
-    res.status(500).json({ success: false, message: 'Error accepting bid' });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error accepting bid',
+      error: error.message
+    });
   }
 };
