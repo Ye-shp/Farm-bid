@@ -379,7 +379,24 @@ exports.acceptBid = async (req, res) => {
     auction.winningBid = winningBid;
     auction.paymentIntentId = paymentIntent.id;
     auction.acceptedAt = new Date();
+    auction.endTime = new Date(); // Set end time to now since auction is completed
     await auction.save();
+
+    // Move auction to completed collection or archive if exists
+    try {
+      // Remove from active auctions query results automatically since status is now 'completed'
+      // Update product availability if needed
+      await Product.findByIdAndUpdate(auction.product._id, {
+        $set: {
+          isAvailable: false,
+          lastSoldPrice: winningBid.amount,
+          lastSoldDate: new Date()
+        }
+      });
+    } catch (error) {
+      console.error('Error updating product status:', error);
+      // Continue execution as this is not critical
+    }
 
     // Notify the winner
     const winnerNotification = new Notification({
@@ -405,6 +422,15 @@ exports.acceptBid = async (req, res) => {
     if (otherBidderNotifications.length > 0) {
       await Notification.insertMany(otherBidderNotifications);
     }
+
+    // Notify the farmer
+    const farmerNotification = new Notification({
+      user: farmerId,
+      message: `You have successfully accepted a bid of $${winningBid.amount} for "${auction.product.title}". The buyer will be notified to complete the payment.`,
+      type: 'bid_accepted_by_farmer',
+      metadata: { auctionId: auction._id }
+    });
+    await farmerNotification.save();
 
     res.json({
       success: true,
