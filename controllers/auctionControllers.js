@@ -338,7 +338,18 @@ exports.acceptBid = async (req, res) => {
   try {
     const { auctionId } = req.params;
     const { acceptedPrice } = req.body;
-    const farmerId = req.user._id;
+    
+    // Get farmer ID from req.user.id (JWT decoding provides id, not _id)
+    const farmerId = req.user.id;
+    
+    if (!farmerId) {
+      console.error('No farmer ID found in request:', { user: req.user });
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Authentication required',
+        debug: { user: req.user }
+      });
+    }
 
     // Find the auction and populate product details
     const auction = await Auction.findById(auctionId)
@@ -362,16 +373,17 @@ exports.acceptBid = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Product owner not found' });
     }
 
-    console.log('Auction:', {
-      auctionId: auction._id,
-      productId: auction.product._id,
-      productUserId: auction.product.user._id,
-      farmerId: farmerId
+    console.log('Debug - IDs:', {
+      auctionId: auction._id.toString(),
+      productId: auction.product._id.toString(),
+      productUserId: auction.product.user._id.toString(),
+      farmerId: farmerId,
+      reqUser: req.user
     });
 
     // Verify that the farmer owns this auction
     const productOwnerId = auction.product.user._id.toString();
-    const requestingFarmerId = farmerId.toString();
+    const requestingFarmerId = farmerId;
 
     if (productOwnerId !== requestingFarmerId) {
       return res.status(403).json({ 
