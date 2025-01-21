@@ -420,11 +420,11 @@ exports.acceptBid = async (req, res) => {
       });
 
       // Update auction status and save winning bid info
-      auction.status = 'completed';
+      auction.status = 'ended';  // Changed from 'completed' to 'ended' to match enum
       auction.winningBid = winningBid;
       auction.paymentIntentId = paymentIntent.id;
       auction.acceptedAt = new Date();
-      auction.endTime = new Date(); // Set end time to now since auction is completed
+      auction.endTime = new Date(); // Set end time to now since auction is ended
       await auction.save();
 
       // Update product availability
