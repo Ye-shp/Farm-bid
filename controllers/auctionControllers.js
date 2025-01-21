@@ -333,4 +333,90 @@ exports.endAuction = async (req, res) => {
   }
 };
 
+// Accept a bid
+exports.acceptBid = async (req, res) => {
+  try {
+    const { auctionId } = req.params;
+    const { acceptedPrice } = req.body;
+    const farmerId = req.user._id;
 
+    // Find the auction and populate product details
+    const auction = await Auction.findById(auctionId).populate('product');
+    
+    if (!auction) {
+      return res.status(404).json({ success: false, message: 'Auction not found' });
+    }
+
+    // Verify that the farmer owns this auction
+    if (auction.product.user.toString() !== farmerId.toString()) {
+      return res.status(403).json({ success: false, message: 'Not authorized to accept bids for this auction' });
+    }
+
+    // Verify auction is still active
+    if (auction.status !== 'active') {
+      return res.status(400).json({ success: false, message: 'Cannot accept bids for an inactive auction' });
+    }
+
+    // Find the winning bid
+    const winningBid = auction.bids.find(bid => bid.amount === acceptedPrice);
+    if (!winningBid) {
+      return res.status(400).json({ success: false, message: 'No matching bid found for the accepted price' });
+    }
+
+    // Create a payment intent for the winning amount
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: winningBid.amount * 100, // Convert to cents
+      currency: 'usd',
+      automatic_payment_methods: { enabled: true },
+      metadata: {
+        auctionId: auction._id.toString(),
+        productId: auction.product._id.toString()
+      }
+    });
+
+    // Update auction status and save winning bid info
+    auction.status = 'completed';
+    auction.winningBid = winningBid;
+    auction.paymentIntentId = paymentIntent.id;
+    auction.acceptedAt = new Date();
+    await auction.save();
+
+    // Notify the winner
+    const winnerNotification = new Notification({
+      user: winningBid.user,
+      message: `Congratulations! The farmer has accepted your bid of $${winningBid.amount} for "${auction.product.title}". Please complete your payment.`,
+      type: 'bid_accepted',
+      metadata: {
+        auctionId: auction._id,
+        paymentIntentClientSecret: paymentIntent.client_secret
+      }
+    });
+    await winnerNotification.save();
+
+    // Notify other bidders
+    const otherBids = auction.bids.filter(bid => bid.user.toString() !== winningBid.user.toString());
+    const otherBidderNotifications = otherBids.map(bid => ({
+      user: bid.user,
+      message: `The auction for "${auction.product.title}" has ended. Your bid was not accepted.`,
+      type: 'bid_not_accepted',
+      metadata: { auctionId: auction._id }
+    }));
+    
+    if (otherBidderNotifications.length > 0) {
+      await Notification.insertMany(otherBidderNotifications);
+    }
+
+    res.json({
+      success: true,
+      message: 'Bid accepted successfully',
+      auction: {
+        ...auction.toObject(),
+        paymentIntentClientSecret: paymentIntent.client_secret
+      }
+    });
+
+  } catch (error) {
+    console.error('Error accepting bid:', error);
+    res.status(500).json({ success: false, message: 'Error accepting bid' });
+  }
+};
