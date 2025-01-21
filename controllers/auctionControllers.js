@@ -341,18 +341,47 @@ exports.acceptBid = async (req, res) => {
     const farmerId = req.user._id;
 
     // Find the auction and populate product details
-    const auction = await Auction.findById(auctionId).populate({
-      path: 'product',
-      populate: { path: 'user' }
-    });
+    const auction = await Auction.findById(auctionId)
+      .populate({
+        path: 'product',
+        populate: {
+          path: 'user',
+          model: 'User'
+        }
+      });
     
     if (!auction) {
       return res.status(404).json({ success: false, message: 'Auction not found' });
     }
 
+    if (!auction.product) {
+      return res.status(400).json({ success: false, message: 'Auction product not found' });
+    }
+
+    if (!auction.product.user) {
+      return res.status(400).json({ success: false, message: 'Product owner not found' });
+    }
+
+    console.log('Auction:', {
+      auctionId: auction._id,
+      productId: auction.product._id,
+      productUserId: auction.product.user._id,
+      farmerId: farmerId
+    });
+
     // Verify that the farmer owns this auction
-    if (auction.product.user._id.toString() !== farmerId.toString()) {
-      return res.status(403).json({ success: false, message: 'Not authorized to accept bids for this auction' });
+    const productOwnerId = auction.product.user._id.toString();
+    const requestingFarmerId = farmerId.toString();
+
+    if (productOwnerId !== requestingFarmerId) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Not authorized to accept bids for this auction',
+        debug: {
+          productOwnerId,
+          requestingFarmerId
+        }
+      });
     }
 
     // Verify auction is still active
