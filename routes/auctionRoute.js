@@ -4,7 +4,8 @@ const {
   getAuctions, 
   getFarmerAuctions, 
   submitBid,
-  getAuctionDetails
+  getAuctionDetails,
+  acceptBid
 } = require('../controllers/auctionControllers');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
@@ -24,5 +25,8 @@ router.get('/:auctionId', authMiddleware, getAuctionDetails);
 
 // Submit a bid
 router.post('/:auctionId/bid', authMiddleware, submitBid);
+
+// Accept a bid
+router.post('/:auctionId/accept', authMiddleware, acceptBid);
 
 module.exports = router;
