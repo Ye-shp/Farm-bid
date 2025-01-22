@@ -251,12 +251,28 @@ exports.acceptBid = async (req, res) => {
   try {
     const { auctionId } = req.params;
     console.log('Accepting bid for auction:', auctionId);
+    console.log('Current user (seller):', req.user); // Log the seller's info
     
-    const auction = await Auction.findById(auctionId).populate('product');
+    const auction = await Auction.findById(auctionId)
+      .populate('product')
+      .populate({
+        path: 'product',
+        populate: {
+          path: 'owner'
+        }
+      });
     
     if (!auction) {
       console.log('Auction not found:', auctionId);
       return res.status(404).json({ message: 'Auction not found' });
+    }
+
+    // Verify the current user is the product owner
+    if (auction.product.owner._id.toString() !== req.user.id) {
+      console.log('Unauthorized: Current user is not the product owner');
+      console.log('Product owner:', auction.product.owner._id);
+      console.log('Current user:', req.user.id);
+      return res.status(403).json({ message: 'Not authorized to accept bids for this auction' });
     }
 
     if (auction.status !== 'active') {
@@ -270,16 +286,23 @@ exports.acceptBid = async (req, res) => {
     }
 
     const winningBid = auction.bids[auction.bids.length - 1];
-    console.log('Winning bid:', winningBid);
+    console.log('Winning bid details:', {
+      user: winningBid.user,
+      amount: winningBid.amount,
+      auction: auction._id,
+      product: auction.product.title
+    });
     
     auction.status = 'ended';
     auction.winningBid = winningBid;
+    auction.acceptedAt = new Date();
     await auction.save();
 
     // Create notifications
     try {
-      console.log('Creating notification for user:', winningBid.user);
-      const notification = await Notification.create({
+      // Create buyer notification
+      console.log('Creating buyer notification for user:', winningBid.user);
+      const buyerNotification = await Notification.create({
         user: winningBid.user,
         message: `Congratulations! Your bid was accepted for "${auction.product.title}". Please complete your payment.`,
         type: 'auction_won',
@@ -289,11 +312,12 @@ exports.acceptBid = async (req, res) => {
           title: auction.product.title
         }
       });
-      console.log('Notification created successfully:', notification);
+      console.log('Buyer notification created:', buyerNotification);
 
-      // Also notify the seller
-      await Notification.create({
-        user: req.user.id, // The seller
+      // Create seller notification
+      console.log('Creating seller notification for user:', auction.product.owner._id);
+      const sellerNotification = await Notification.create({
+        user: auction.product.owner._id,
         message: `You have accepted a bid for "${auction.product.title}". The buyer will be notified to complete payment.`,
         type: 'bid_accepted',
         metadata: {
@@ -302,8 +326,24 @@ exports.acceptBid = async (req, res) => {
           title: auction.product.title
         }
       });
+      console.log('Seller notification created:', sellerNotification);
+
+      // Verify notifications were saved
+      const savedNotifications = await Notification.find({
+        $or: [
+          { _id: buyerNotification._id },
+          { _id: sellerNotification._id }
+        ]
+      }).populate('user');
+      console.log('Verified saved notifications:', savedNotifications);
+
     } catch (notificationError) {
       console.error('Error creating notification:', notificationError);
+      console.error('Error details:', {
+        stack: notificationError.stack,
+        code: notificationError.code,
+        message: notificationError.message
+      });
     }
 
     res.json({ message: 'Bid accepted successfully', auction });

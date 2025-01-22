@@ -3,13 +3,26 @@ const Notification = require('../models/Notification');
 
 exports.getNotifications = async (req, res) => {
   try {
-    console.log('Getting notifications for user:', req.user.id); // Debug log
+    console.log('Getting notifications for user:', req.user);
+    console.log('JWT token:', req.header('Authorization'));
+    
+    if (!req.user || !req.user.id) {
+      console.error('No user ID found in request');
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
     const notifications = await Notification.find({ user: req.user.id })
       .sort({ createdAt: -1 });
-    console.log('Found notifications:', notifications); // Debug log
+    console.log('Found notifications:', notifications);
+    console.log('MongoDB query:', { user: req.user.id });
     res.json(notifications);
   } catch (err) {
     console.error('Error in getNotifications:', err);
+    console.error('Error details:', {
+      stack: err.stack,
+      code: err.code,
+      message: err.message
+    });
     res.status(500).json({ error: err.message });
   }
 };
