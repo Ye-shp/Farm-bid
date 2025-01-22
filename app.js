@@ -2,6 +2,8 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const http = require('http');
+const socketIo = require('socket.io');
 
 mongoose.set('debug', true);
 
@@ -11,6 +13,38 @@ dotenv.config();
 require('./jobs/cronJobs'); 
 
 const app = express();
+const server = http.createServer(app);
+const io = socketIo(server, {
+  cors: {
+    origin: ['http://localhost:3000', 'https://elipae.com'],
+    methods: ['GET', 'POST'],
+    credentials: true
+  }
+});
+
+// Socket.IO connection handling
+io.on('connection', (socket) => {
+  console.log('Client connected:', socket.id);
+
+  socket.on('authenticate', (token) => {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      socket.userId = decoded.id;
+      socket.join(`user_${decoded.id}`);
+      console.log('User authenticated:', decoded.id);
+    } catch (error) {
+      console.error('Socket authentication error:', error);
+    }
+  });
+
+  socket.on('disconnect', () => {
+    console.log('Client disconnected:', socket.id);
+  });
+});
+
+// Make io accessible to other modules
+app.set('io', io);
+
 app.use(express.json());
 app.use(cors({
   origin: ['http://localhost:3000', 'https://elipae.com'],
@@ -117,4 +151,4 @@ process.on('unhandledRejection', (reason, promise) => {
 
 // Server running
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

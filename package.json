@@ -23,6 +23,7 @@
     "node-cron": "^3.0.3",
     "nodemailer": "^6.9.16",
     "serve": "^14.2.3",
+    "socket.io": "^4.8.1",
     "stripe": "^16.9.0",
     "twilio": "^5.3.6",
     "validator": "^13.12.0"
