@@ -290,6 +290,18 @@ exports.acceptBid = async (req, res) => {
         }
       });
       console.log('Notification created successfully:', notification);
+
+      // Also notify the seller
+      await Notification.create({
+        user: req.user.id, // The seller
+        message: `You have accepted a bid for "${auction.product.title}". The buyer will be notified to complete payment.`,
+        type: 'bid_accepted',
+        metadata: {
+          auctionId: auction._id,
+          amount: winningBid.amount,
+          title: auction.product.title
+        }
+      });
     } catch (notificationError) {
       console.error('Error creating notification:', notificationError);
     }
