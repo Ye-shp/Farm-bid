@@ -3,6 +3,7 @@ const { Product } = require('../models/Product');  // Destructure Product from t
 const mongoose = require('mongoose');  
 const Notification = require('../models/Notification');
 const stripe = require('../config/stripeconfig');
+const { createAndEmitNotification } = require('./notificationController');
 
 //Error in checkAndUpdateExpiredAuctions: TypeError: Cannot read properties of null (reading '_id')
 const checkAndUpdateExpiredAuctions = async () => {
@@ -293,58 +294,51 @@ exports.acceptBid = async (req, res) => {
       product: auction.product.title
     });
     
+    // Create payment intent for the winning amount
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(winningBid.amount * 100), // Convert to cents
+      currency: 'usd',
+      automatic_payment_methods: { enabled: true },
+      metadata: {
+        auctionId: auction._id.toString(),
+        productId: auction.product._id.toString()
+      }
+    });
+    
+    auction.paymentIntentId = paymentIntent.id;
+    await auction.save();
+
     auction.status = 'ended';
     auction.winningBid = winningBid;
     auction.acceptedAt = new Date();
     await auction.save();
 
-    // Create notifications
-    try {
-      // Create buyer notification
-      console.log('Creating buyer notification for user:', winningBid.user);
-      const buyerNotification = await Notification.create({
-        user: winningBid.user,
-        message: `Congratulations! Your bid was accepted for "${auction.product.title}". Please complete your payment.`,
-        type: 'auction_won',
-        metadata: {
-          auctionId: auction._id,
-          amount: winningBid.amount,
-          title: auction.product.title
-        }
-      });
-      console.log('Buyer notification created:', buyerNotification);
+    // Create buyer notification with payment information
+    console.log('Creating buyer notification for user:', winningBid.user);
+    const buyerNotification = await createAndEmitNotification(req, winningBid.user, {
+      message: `Congratulations! Your bid of $${winningBid.amount} was accepted for "${auction.product.title}". Click here to complete your payment.`,
+      type: 'auction_won',
+      metadata: {
+        auctionId: auction._id,
+        amount: winningBid.amount,
+        title: auction.product.title,
+        paymentIntentClientSecret: paymentIntent.client_secret
+      }
+    });
+    console.log('Buyer notification created:', buyerNotification);
 
-      // Create seller notification
-      console.log('Creating seller notification for user:', auction.product.user._id);
-      const sellerNotification = await Notification.create({
-        user: auction.product.user._id,
-        message: `You have accepted a bid for "${auction.product.title}". The buyer will be notified to complete payment.`,
-        type: 'bid_accepted',
-        metadata: {
-          auctionId: auction._id,
-          amount: winningBid.amount,
-          title: auction.product.title
-        }
-      });
-      console.log('Seller notification created:', sellerNotification);
-
-      // Verify notifications were saved
-      const savedNotifications = await Notification.find({
-        $or: [
-          { _id: buyerNotification._id },
-          { _id: sellerNotification._id }
-        ]
-      }).populate('user');
-      console.log('Verified saved notifications:', savedNotifications);
-
-    } catch (notificationError) {
-      console.error('Error creating notification:', notificationError);
-      console.error('Error details:', {
-        stack: notificationError.stack,
-        code: notificationError.code,
-        message: notificationError.message
-      });
-    }
+    // Create seller notification
+    console.log('Creating seller notification for user:', auction.product.user._id);
+    const sellerNotification = await createAndEmitNotification(req, auction.product.user._id, {
+      message: `A bid of $${winningBid.amount} has been accepted for your auction "${auction.product.title}".`,
+      type: 'auction_ended',
+      metadata: {
+        auctionId: auction._id,
+        amount: winningBid.amount,
+        title: auction.product.title
+      }
+    });
+    console.log('Seller notification created:', sellerNotification);
 
     res.json({ message: 'Bid accepted successfully', auction });
   } catch (error) {

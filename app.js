@@ -4,6 +4,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const http = require('http');
 const socketIo = require('socket.io');
+const jwt = require('jsonwebtoken');
 
 mongoose.set('debug', true);
 
@@ -14,11 +15,14 @@ require('./jobs/cronJobs');
 
 const app = express();
 const server = http.createServer(app);
+
+// Socket.IO setup with CORS
 const io = socketIo(server, {
   cors: {
     origin: ['http://localhost:3000', 'https://elipae.com'],
     methods: ['GET', 'POST'],
-    credentials: true
+    credentials: true,
+    allowedHeaders: ['Authorization']
   }
 });
 
@@ -28,10 +32,12 @@ io.on('connection', (socket) => {
 
   socket.on('authenticate', (token) => {
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      // Remove 'Bearer ' prefix if present
+      const actualToken = token.startsWith('Bearer ') ? token.slice(7) : token;
+      const decoded = jwt.verify(actualToken, process.env.JWT_SECRET);
       socket.userId = decoded.id;
       socket.join(`user_${decoded.id}`);
-      console.log('User authenticated:', decoded.id);
+      console.log('User authenticated on socket:', decoded.id);
     } catch (error) {
       console.error('Socket authentication error:', error);
     }
