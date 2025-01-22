@@ -177,7 +177,12 @@ exports.submitBid = async (req, res) => {
   try {
     const { auctionId } = req.params;
     const { bidAmount } = req.body;
-    const userId = req.user._id;
+    const userId = new mongoose.Types.ObjectId(req.user._id);
+
+    // Validate auctionId is a valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(auctionId)) {
+      return res.status(400).json({ message: 'Invalid auction ID format' });
+    }
 
     const auction = await Auction.findById(auctionId).populate('product');
     if (!auction) {
@@ -219,7 +224,7 @@ exports.submitBid = async (req, res) => {
     res.json(auction);
   } catch (error) {
     console.error('Error in submitBid:', error);
-    res.status(500).json({ message: 'Error submitting bid' });
+    res.status(500).json({ message: error.message || 'Error submitting bid' });
   }
 };
 
