@@ -199,7 +199,7 @@ exports.submitBid = async (req, res) => {
     auction.bids.push({
       user: userId,
       amount: bidAmount,
-      timestamp: new Date()
+      time: new Date()
     });
 
     auction.currentPrice = bidAmount;
