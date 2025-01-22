@@ -1,15 +1,45 @@
 // In a new or existing notifications controller
 const Notification = require('../models/Notification');
 
+// Helper function to emit notification
+const emitNotification = (req, notification) => {
+  const io = req.app.get('io');
+  if (io) {
+    io.to(`user_${notification.user}`).emit('newNotification', notification);
+  }
+};
+
 exports.getNotifications = async (req, res) => {
   try {
     const userId = req.user.id;
+    console.log('Fetching notifications for user:', userId);
+    
     const notifications = await Notification.find({ user: userId })
       .sort({ createdAt: -1 });
+    
+    console.log(`Found ${notifications.length} notifications`);
     res.json(notifications);
   } catch (err) {
     console.error('Error in getNotifications:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ 
+      error: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
+  }
+};
+
+exports.createNotification = async (req, userId, notificationData) => {
+  try {
+    const notification = new Notification({
+      user: userId,
+      ...notificationData
+    });
+    await notification.save();
+    emitNotification(req, notification);
+    return notification;
+  } catch (error) {
+    console.error('Error creating notification:', error);
+    throw error;
   }
 };
 
@@ -27,6 +57,9 @@ exports.markNotificationAsRead = async (req, res) => {
 
     notification.read = true;
     await notification.save();
+
+    // Emit the updated notification
+    emitNotification(req, notification);
 
     res.json({ message: 'Notification marked as read' });
   } catch (err) {
