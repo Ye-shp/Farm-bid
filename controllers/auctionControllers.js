@@ -387,15 +387,28 @@ exports.acceptBid = async (req, res) => {
       , auction.bids[0]);
       console.log('No price specified, accepting highest bid:', winningBid);
     } else {
-      winningBid = auction.bids.find(bid => bid.amount === acceptedPrice);
-      console.log('Looking for bid with price:', acceptedPrice, 'Found:', winningBid);
+      // Convert acceptedPrice to number for comparison
+      const numericAcceptedPrice = Number(acceptedPrice);
+      console.log('Bid amounts:', {
+        acceptedPrice,
+        numericAcceptedPrice,
+        bids: auction.bids.map(b => ({ amount: b.amount, type: typeof b.amount }))
+      });
+      
+      winningBid = auction.bids.find(bid => Number(bid.amount) === numericAcceptedPrice);
+      console.log('Looking for bid with price:', numericAcceptedPrice, 'Found:', winningBid);
     }
 
     if (!winningBid) {
       return res.status(400).json({ 
         success: false, 
         message: 'No matching bid found for the accepted price',
-        availableBids: auction.bids.map(bid => ({ amount: bid.amount, time: bid.time }))
+        acceptedPrice,
+        availableBids: auction.bids.map(bid => ({ 
+          amount: bid.amount, 
+          time: bid.time,
+          type: typeof bid.amount 
+        }))
       });
     }
 
