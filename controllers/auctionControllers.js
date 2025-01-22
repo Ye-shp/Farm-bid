@@ -374,12 +374,41 @@ exports.acceptBid = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Product owner not found' });
     }
 
+    // Check if auction has any bids
+    if (!auction.bids || auction.bids.length === 0) {
+      return res.status(400).json({ success: false, message: 'This auction has no bids to accept' });
+    }
+
+    // If no specific price provided, accept the highest bid
+    let winningBid;
+    if (!acceptedPrice) {
+      winningBid = auction.bids.reduce((highest, current) => 
+        current.amount > highest.amount ? current : highest
+      , auction.bids[0]);
+      console.log('No price specified, accepting highest bid:', winningBid);
+    } else {
+      winningBid = auction.bids.find(bid => bid.amount === acceptedPrice);
+      console.log('Looking for bid with price:', acceptedPrice, 'Found:', winningBid);
+    }
+
+    if (!winningBid) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'No matching bid found for the accepted price',
+        availableBids: auction.bids.map(bid => ({ amount: bid.amount, time: bid.time }))
+      });
+    }
+
     console.log('Debug - IDs:', {
       auctionId: auction._id.toString(),
       productId: auction.product._id.toString(),
       productUserId: auction.product.user._id.toString(),
       farmerId: farmerId,
-      reqUser: req.user
+      reqUser: req.user,
+      winningBid: {
+        amount: winningBid.amount,
+        userId: winningBid.user.toString()
+      }
     });
 
     // Verify that the farmer owns this auction
@@ -400,12 +429,6 @@ exports.acceptBid = async (req, res) => {
     // Verify auction is still active
     if (auction.status !== 'active') {
       return res.status(400).json({ success: false, message: 'Cannot accept bids for an inactive auction' });
-    }
-
-    // Find the winning bid
-    const winningBid = auction.bids.find(bid => bid.amount === acceptedPrice);
-    if (!winningBid) {
-      return res.status(400).json({ success: false, message: 'No matching bid found for the accepted price' });
     }
 
     try {
