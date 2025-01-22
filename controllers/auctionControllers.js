@@ -228,18 +228,6 @@ exports.submitBid = async (req, res) => {
   }
 };
 
-// Get notifications
-exports.getNotifications = async (req, res) => {
-  try {
-    const notifications = await Notification.find({ user: req.user._id })
-      .sort({ createdAt: -1 });
-    res.json(notifications);
-  } catch (error) {
-    console.error('Error in getNotifications:', error);
-    res.status(500).json({ message: 'Error fetching notifications' });
-  }
-};
-
 // End auction
 exports.endAuction = async (req, res) => {
   try {
@@ -262,36 +250,49 @@ exports.endAuction = async (req, res) => {
 exports.acceptBid = async (req, res) => {
   try {
     const { auctionId } = req.params;
+    console.log('Accepting bid for auction:', auctionId);
+    
     const auction = await Auction.findById(auctionId).populate('product');
     
     if (!auction) {
+      console.log('Auction not found:', auctionId);
       return res.status(404).json({ message: 'Auction not found' });
     }
 
     if (auction.status !== 'active') {
+      console.log('Auction not active:', auction.status);
       return res.status(400).json({ message: 'This auction has already ended' });
     }
 
     if (auction.bids.length === 0) {
+      console.log('No bids found for auction:', auctionId);
       return res.status(400).json({ message: 'No bids to accept' });
     }
 
     const winningBid = auction.bids[auction.bids.length - 1];
+    console.log('Winning bid:', winningBid);
+    
     auction.status = 'ended';
     auction.winningBid = winningBid;
     await auction.save();
 
     // Create notifications
-    await Notification.create({
-      user: winningBid.user,
-      message: `Congratulations! Your bid was accepted for "${auction.product.title}". Please complete your payment.`,
-      type: 'auction_won',
-      metadata: {
-        auctionId: auction._id,
-        amount: winningBid.amount,
-        title: auction.product.title
-      }
-    });
+    try {
+      console.log('Creating notification for user:', winningBid.user);
+      const notification = await Notification.create({
+        user: winningBid.user,
+        message: `Congratulations! Your bid was accepted for "${auction.product.title}". Please complete your payment.`,
+        type: 'auction_won',
+        metadata: {
+          auctionId: auction._id,
+          amount: winningBid.amount,
+          title: auction.product.title
+        }
+      });
+      console.log('Notification created successfully:', notification);
+    } catch (notificationError) {
+      console.error('Error creating notification:', notificationError);
+    }
 
     res.json({ message: 'Bid accepted successfully', auction });
   } catch (error) {
@@ -401,7 +402,6 @@ module.exports = {
   getAuctionDetails: exports.getAuctionDetails,
   createAuction: exports.createAuction,
   submitBid: exports.submitBid,
-  getNotifications: exports.getNotifications,
   endAuction: exports.endAuction,
   acceptBid: exports.acceptBid,
   createPaymentIntent: exports.createPaymentIntent,
