@@ -1,5 +1,8 @@
 const OpenContract = require('../models/OpenContract');
 const User = require('../models/User');
+const Order = require('../models/Order');
+const Auction = require('../models/Auctions');
+const Notification = require('../models/Notification');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 // Create a payment intent
@@ -158,33 +161,99 @@ exports.processPayout = async (req, res) => {
   }
 };
 
+// Handle auction payment success
+async function handleAuctionPayment(paymentIntent) {
+  try {
+    const { auctionId } = paymentIntent.metadata;
+    
+    const auction = await Auction.findById(auctionId)
+      .populate('product')
+      .populate('winningBid.user');
+      
+    if (!auction) {
+      throw new Error('Auction not found');
+    }
+
+    // Create or update order
+    const order = await Order.findOneAndUpdate(
+      { paymentIntentId: paymentIntent.id },
+      {
+        auction: auctionId,
+        buyer: auction.winningBid.user._id,
+        seller: auction.product.user,
+        amount: paymentIntent.amount / 100,
+        status: 'paid',
+        paymentDate: new Date()
+      },
+      { upsert: true, new: true }
+    );
+
+    // Update auction payment status
+    auction.paymentStatus = 'paid';
+    await auction.save();
+
+    // Notify buyer and seller
+    await Notification.create([
+      {
+        user: order.buyer,
+        message: `Your payment of $${order.amount} for auction "${auction.product.title}" has been received.`,
+        type: 'payment',
+        metadata: { orderId: order._id }
+      },
+      {
+        user: order.seller,
+        message: `Payment of $${order.amount} has been received for your auction "${auction.product.title}".`,
+        type: 'payment',
+        metadata: { orderId: order._id }
+      }
+    ]);
+
+    return order;
+  } catch (error) {
+    console.error('Error handling auction payment:', error);
+    throw error;
+  }
+}
+
 // Handle Stripe webhook
 exports.handleWebhook = async (req, res) => {
   const sig = req.headers['stripe-signature'];
-  const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  let event;
 
   try {
-    const event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+    event = stripe.webhooks.constructEvent(
+      req.body,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
+  } catch (err) {
+    console.error('Webhook signature verification failed:', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
 
+  try {
     switch (event.type) {
       case 'payment_intent.succeeded':
         const paymentIntent = event.data.object;
-        // Handle successful payment
-        await handleSuccessfulPayment(paymentIntent);
+        
+        // Check if this is an auction payment
+        if (paymentIntent.metadata.auctionId) {
+          await handleAuctionPayment(paymentIntent);
+        } else {
+          // Handle other payment types (e.g., contracts)
+          await handleSuccessfulPayment(paymentIntent);
+        }
         break;
+        
       case 'transfer.paid':
-        const transfer = event.data.object;
-        // Handle successful payout
-        await handleSuccessfulPayout(transfer);
+        await handleSuccessfulPayout(event.data.object);
         break;
-      default:
-        console.log(`Unhandled event type ${event.type}`);
     }
 
     res.json({ received: true });
   } catch (err) {
-    console.error('Webhook error:', err);
-    res.status(400).json({ error: err.message });
+    console.error('Error processing webhook:', err);
+    res.status(500).json({ error: err.message });
   }
 };
 
