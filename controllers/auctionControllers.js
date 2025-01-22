@@ -542,3 +542,110 @@ exports.acceptBid = async (req, res) => {
     });
   }
 };
+
+// Create payment intent for auction
+const createPaymentIntent = async (req, res) => {
+  try {
+    const { auctionId } = req.params;
+    const { amount } = req.body;
+
+    const auction = await Auction.findById(auctionId);
+    if (!auction) {
+      return res.status(404).json({ message: 'Auction not found' });
+    }
+
+    // Verify that the requesting user is the winner
+    const winningBid = auction.bids[auction.bids.length - 1];
+    if (winningBid.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Only the auction winner can make payment' });
+    }
+
+    // Create or retrieve payment intent
+    let paymentIntent;
+    if (auction.paymentIntentId) {
+      paymentIntent = await stripe.paymentIntents.retrieve(auction.paymentIntentId);
+    } else {
+      paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(amount * 100), // Convert to cents
+        currency: 'usd',
+        automatic_payment_methods: { enabled: true },
+        metadata: {
+          auctionId: auction._id.toString(),
+          productId: auction.product.toString()
+        }
+      });
+      
+      auction.paymentIntentId = paymentIntent.id;
+      await auction.save();
+    }
+
+    res.json({
+      clientSecret: paymentIntent.client_secret
+    });
+  } catch (error) {
+    console.error('Error creating payment intent:', error);
+    res.status(500).json({ message: 'Error creating payment intent' });
+  }
+};
+
+// Handle successful payment webhook
+const handlePaymentWebhook = async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(
+      req.body,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
+  } catch (err) {
+    console.error('Webhook Error:', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  if (event.type === 'payment_intent.succeeded') {
+    const paymentIntent = event.data.object;
+    const { auctionId } = paymentIntent.metadata;
+
+    try {
+      const auction = await Auction.findById(auctionId);
+      if (auction) {
+        auction.status = 'paid';
+        await auction.save();
+
+        // Create notifications for both buyer and seller
+        const winningBid = auction.bids[auction.bids.length - 1];
+        
+        await Notification.create({
+          user: winningBid.user,
+          message: `Payment successful for auction "${auction.title}". The seller will be notified to fulfill your order.`,
+          type: 'payment_success'
+        });
+
+        await Notification.create({
+          user: auction.product.user,
+          message: `Payment received for auction "${auction.title}". Please proceed with order fulfillment.`,
+          type: 'payment_received'
+        });
+      }
+    } catch (error) {
+      console.error('Error processing successful payment:', error);
+    }
+  }
+
+  res.json({ received: true });
+};
+
+module.exports = {
+  getAuctions,
+  getFarmerAuctions,
+  getAuctionDetails,
+  createAuction,
+  submitBid,
+  getNotifications,
+  endAuction,
+  acceptBid,
+  createPaymentIntent,
+  handlePaymentWebhook
+};
