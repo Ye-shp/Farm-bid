@@ -2,44 +2,43 @@
 const Notification = require('../models/Notification');
 
 // Helper function to emit notification
-const emitNotification = (req, notification) => {
-  const io = req.app.get('io');
+const emitNotification = (io, userId, notification) => {
   if (io) {
-    io.to(`user_${notification.user}`).emit('newNotification', notification);
+    console.log('Emitting notification to user:', userId);
+    io.to(`user_${userId}`).emit('newNotification', notification);
+  } else {
+    console.warn('Socket.IO instance not available');
+  }
+};
+
+exports.createAndEmitNotification = async (req, userId, notificationData) => {
+  try {
+    console.log('Creating notification for user:', userId);
+    const notification = await Notification.create({
+      user: userId,
+      ...notificationData
+    });
+    
+    // Get the io instance from the app
+    const io = req.app.get('io');
+    emitNotification(io, userId, notification);
+    
+    return notification;
+  } catch (error) {
+    console.error('Error in createAndEmitNotification:', error);
+    throw error;
   }
 };
 
 exports.getNotifications = async (req, res) => {
   try {
     const userId = req.user.id;
-    console.log('Fetching notifications for user:', userId);
-    
     const notifications = await Notification.find({ user: userId })
       .sort({ createdAt: -1 });
-    
-    console.log(`Found ${notifications.length} notifications`);
     res.json(notifications);
   } catch (err) {
     console.error('Error in getNotifications:', err);
-    res.status(500).json({ 
-      error: err.message,
-      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
-    });
-  }
-};
-
-exports.createNotification = async (req, userId, notificationData) => {
-  try {
-    const notification = new Notification({
-      user: userId,
-      ...notificationData
-    });
-    await notification.save();
-    emitNotification(req, notification);
-    return notification;
-  } catch (error) {
-    console.error('Error creating notification:', error);
-    throw error;
+    res.status(500).json({ error: err.message });
   }
 };
 
@@ -50,7 +49,6 @@ exports.markNotificationAsRead = async (req, res) => {
       return res.status(404).json({ message: 'Notification not found' });
     }
 
-    // Verify the notification belongs to the requesting user
     if (notification.user.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Not authorized to modify this notification' });
     }
@@ -59,7 +57,8 @@ exports.markNotificationAsRead = async (req, res) => {
     await notification.save();
 
     // Emit the updated notification
-    emitNotification(req, notification);
+    const io = req.app.get('io');
+    emitNotification(io, req.user.id, notification);
 
     res.json({ message: 'Notification marked as read' });
   } catch (err) {
