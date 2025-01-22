@@ -50,8 +50,16 @@ const AuctionSchema = new mongoose.Schema({
       type: Date 
     }
   },
-  paymentIntentId: { 
-    type: String 
+  paymentStatus: {
+    type: String,
+    enum: ['pending', 'paid', 'failed'],
+    default: 'pending'
+  },
+  paymentIntentId: {
+    type: String
+  },
+  acceptedAt: {
+    type: Date
   }
 }, {
   timestamps: true  // Adds createdAt and updatedAt fields
