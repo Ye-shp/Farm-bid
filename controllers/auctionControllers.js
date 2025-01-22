@@ -228,20 +228,6 @@ exports.submitBid = async (req, res) => {
   }
 };
 
-// Get notifications
-exports.getNotifications = async (req, res) => {
-  try {
-    console.log('Getting notifications for user:', req.user._id);
-    const notifications = await Notification.find({ user: req.user._id })
-      .sort({ createdAt: -1 });
-    console.log('Found notifications:', notifications);
-    res.json(notifications);
-  } catch (error) {
-    console.error('Error in getNotifications:', error);
-    res.status(500).json({ message: 'Error fetching notifications' });
-  }
-};
-
 // End auction
 exports.endAuction = async (req, res) => {
   try {
@@ -306,7 +292,6 @@ exports.acceptBid = async (req, res) => {
       console.log('Notification created successfully:', notification);
     } catch (notificationError) {
       console.error('Error creating notification:', notificationError);
-      // Continue execution even if notification fails
     }
 
     res.json({ message: 'Bid accepted successfully', auction });
@@ -417,7 +402,6 @@ module.exports = {
   getAuctionDetails: exports.getAuctionDetails,
   createAuction: exports.createAuction,
   submitBid: exports.submitBid,
-  getNotifications: exports.getNotifications,
   endAuction: exports.endAuction,
   acceptBid: exports.acceptBid,
   createPaymentIntent: exports.createPaymentIntent,
