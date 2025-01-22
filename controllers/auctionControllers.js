@@ -391,14 +391,14 @@ exports.handlePaymentWebhook = async (req, res) => {
 
 module.exports = {
   checkAndUpdateExpiredAuctions,
-  getAuctions,
-  getFarmerAuctions,
-  getAuctionDetails,
-  createAuction,
-  submitBid,
-  getNotifications,
-  endAuction,
-  acceptBid,
-  createPaymentIntent,
-  handlePaymentWebhook
+  getAuctions: exports.getAuctions,
+  getFarmerAuctions: exports.getFarmerAuctions,
+  getAuctionDetails: exports.getAuctionDetails,
+  createAuction: exports.createAuction,
+  submitBid: exports.submitBid,
+  getNotifications: exports.getNotifications,
+  endAuction: exports.endAuction,
+  acceptBid: exports.acceptBid,
+  createPaymentIntent: exports.createPaymentIntent,
+  handlePaymentWebhook: exports.handlePaymentWebhook
 };
