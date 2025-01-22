@@ -5,7 +5,7 @@ const dotenv = require('dotenv');
 
 mongoose.set('debug', true);
 
-
+// Load environment variables from .env file
 dotenv.config();
 
 require('./jobs/cronJobs'); 
@@ -15,9 +15,32 @@ app.use(express.json());
 app.use(cors({
   origin: ['http://localhost:3000', 'https://elipae.com'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization',
+    'Origin',
+    'X-Requested-With',
+    'Accept',
+    'Access-Control-Request-Method',
+    'Access-Control-Request-Headers',
+    'stripe-signature'
+  ],
+  exposedHeaders: ['Content-Length', 'X-Total-Count'],
+  credentials: true,
+  maxAge: 86400 // 24 hours
 }));
+
+// Special handling for Stripe webhook route
+app.use('/api/auctions/webhook', express.raw({ type: 'application/json' }));
+
+// For all other routes, parse JSON
+app.use((req, res, next) => {
+  if (req.originalUrl === '/api/auctions/webhook') {
+    next();
+  } else {
+    express.json()(req, res, next);
+  }
+});
 
 // Import routes
 const authRoute = require('./routes/authRoute');
