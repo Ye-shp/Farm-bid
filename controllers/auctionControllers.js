@@ -485,7 +485,7 @@ exports.acceptBid = async (req, res) => {
       const winnerNotification = new Notification({
         user: winningBid.user,
         message: `Congratulations! The farmer has accepted your bid of $${winningBid.amount} for "${auction.product.title}". Please complete your payment.`,
-        type: 'bid_accepted',
+        type: 'payment',  // Changed from 'bid_accepted' to 'payment'
         metadata: {
           auctionId: auction._id,
           paymentIntentClientSecret: paymentIntent.client_secret
@@ -498,7 +498,7 @@ exports.acceptBid = async (req, res) => {
       const otherBidderNotifications = otherBids.map(bid => ({
         user: bid.user,
         message: `The auction for "${auction.product.title}" has ended. Your bid was not accepted.`,
-        type: 'bid_not_accepted',
+        type: 'bid',  // Changed from 'bid_not_accepted' to 'bid'
         metadata: { auctionId: auction._id }
       }));
       
@@ -510,7 +510,7 @@ exports.acceptBid = async (req, res) => {
       const farmerNotification = new Notification({
         user: farmerId,
         message: `You have successfully accepted a bid of $${winningBid.amount} for "${auction.product.title}". The buyer will be notified to complete the payment.`,
-        type: 'bid_accepted_by_farmer',
+        type: 'fulfillment',  // Changed from 'bid_accepted_by_farmer' to 'fulfillment'
         metadata: { auctionId: auction._id }
       });
       await farmerNotification.save();
