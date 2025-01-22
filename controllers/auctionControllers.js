@@ -296,7 +296,7 @@ exports.acceptBid = async (req, res) => {
 };
 
 // Create payment intent for auction
-const createPaymentIntent = async (req, res) => {
+exports.createPaymentIntent = async (req, res) => {
   try {
     const { auctionId } = req.params;
     const { amount } = req.body;
@@ -341,7 +341,7 @@ const createPaymentIntent = async (req, res) => {
 };
 
 // Handle successful payment webhook
-const handlePaymentWebhook = async (req, res) => {
+exports.handlePaymentWebhook = async (req, res) => {
   const sig = req.headers['stripe-signature'];
   let event;
 
@@ -391,14 +391,14 @@ const handlePaymentWebhook = async (req, res) => {
 
 module.exports = {
   checkAndUpdateExpiredAuctions,
-  getAuctions: exports.getAuctions,
-  getFarmerAuctions: exports.getFarmerAuctions,
-  getAuctionDetails: exports.getAuctionDetails,
-  createAuction: exports.createAuction,
-  submitBid: exports.submitBid,
-  getNotifications: exports.getNotifications,
-  endAuction: exports.endAuction,
-  acceptBid: exports.acceptBid,
-  createPaymentIntent: exports.createPaymentIntent,
-  handlePaymentWebhook: exports.handlePaymentWebhook
+  getAuctions,
+  getFarmerAuctions,
+  getAuctionDetails,
+  createAuction,
+  submitBid,
+  getNotifications,
+  endAuction,
+  acceptBid,
+  createPaymentIntent,
+  handlePaymentWebhook
 };
