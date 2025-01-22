@@ -258,7 +258,7 @@ exports.acceptBid = async (req, res) => {
       .populate({
         path: 'product',
         populate: {
-          path: 'owner'
+          path: 'user'
         }
       });
     
@@ -268,9 +268,9 @@ exports.acceptBid = async (req, res) => {
     }
 
     // Verify the current user is the product owner
-    if (auction.product.owner._id.toString() !== req.user.id) {
+    if (auction.product.user._id.toString() !== req.user.id) {
       console.log('Unauthorized: Current user is not the product owner');
-      console.log('Product owner:', auction.product.owner._id);
+      console.log('Product owner:', auction.product.user._id);
       console.log('Current user:', req.user.id);
       return res.status(403).json({ message: 'Not authorized to accept bids for this auction' });
     }
@@ -315,9 +315,9 @@ exports.acceptBid = async (req, res) => {
       console.log('Buyer notification created:', buyerNotification);
 
       // Create seller notification
-      console.log('Creating seller notification for user:', auction.product.owner._id);
+      console.log('Creating seller notification for user:', auction.product.user._id);
       const sellerNotification = await Notification.create({
-        user: auction.product.owner._id,
+        user: auction.product.user._id,
         message: `You have accepted a bid for "${auction.product.title}". The buyer will be notified to complete payment.`,
         type: 'bid_accepted',
         metadata: {
