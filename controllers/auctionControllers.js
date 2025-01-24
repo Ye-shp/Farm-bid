@@ -106,7 +106,10 @@ exports.getFarmerAuctions = async (req, res) => {
     }
 
     const auctions = await Auction.find(query)
-      .populate('product')
+      .populate({
+        path: 'product',
+        populate: { path: 'user' }
+      })
       .sort({ createdAt: -1 });
 
     res.json(auctions);
@@ -120,7 +123,10 @@ exports.getFarmerAuctions = async (req, res) => {
 exports.getAuctionDetails = async (req, res) => {
   try {
     const auction = await Auction.findById(req.params.auctionId)
-      .populate('product')
+      .populate({
+        path: 'product',
+        populate: { path: 'user' }
+      })
       .populate('bids.user', 'name email');
     
     if (!auction) {
@@ -173,7 +179,11 @@ exports.submitBid = async (req, res) => {
       return res.status(400).json({ message: 'Invalid auction ID format' });
     }
 
-    const auction = await Auction.findById(auctionId).populate('product');
+    const auction = await Auction.findById(auctionId)
+      .populate({
+        path: 'product',
+        populate: { path: 'user' }
+      });
     if (!auction) {
       return res.status(404).json({ message: 'Auction not found' });
     }
@@ -243,7 +253,10 @@ exports.acceptBid = async (req, res) => {
     console.log('Accepting bid:', { auctionId, bidId });
 
     const auction = await Auction.findById(auctionId)
-      .populate('product')
+      .populate({
+        path: 'product',
+        populate: { path: 'user' }
+      })
       .populate('bids.user');
 
     if (!auction) {
