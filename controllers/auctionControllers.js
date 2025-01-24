@@ -257,10 +257,7 @@ exports.acceptBid = async (req, res) => {
         path: 'product',
         populate: { path: 'user' }
       })
-      .populate({
-        path: 'bids',
-        populate: { path: 'user' }
-      });
+      .populate('bids.user');
 
     if (!auction) {
       console.log('Auction not found:', auctionId);
@@ -272,7 +269,11 @@ exports.acceptBid = async (req, res) => {
       id: auction._id,
       productId: auction.product._id,
       bidsCount: auction.bids.length,
-      bids: auction.bids.map(bid => ({ id: bid.id || bid._id, amount: bid.amount }))
+      bids: auction.bids.map(bid => ({
+        id: bid._id,
+        amount: bid.amount,
+        userId: bid.user._id
+      }))
     });
 
     // Verify the user is the owner of the product
@@ -289,23 +290,16 @@ exports.acceptBid = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to accept bids for this auction' });
     }
 
-    // Log all bids for debugging
-    console.log('All bids:', auction.bids.map(bid => ({
-      id: bid.id || bid._id,
-      amount: bid.amount,
-      keys: Object.keys(bid)
-    })));
-
-    const winningBid = auction.bids.find(bid => (bid.id || bid._id).toString() === bidId);
+    const winningBid = auction.bids.find(bid => bid._id.toString() === bidId);
     if (!winningBid) {
       console.log('Bid not found:', { auctionId, bidId });
       return res.status(404).json({ message: 'Bid not found' });
     }
 
     console.log('Found winning bid:', {
-      bidId: winningBid.id || winningBid._id,
-      amount: winningBid.amount,
-      keys: Object.keys(winningBid)
+      bidId: winningBid._id,
+      userId: winningBid.user._id,
+      amount: winningBid.amount
     });
 
     // Create payment intent for the winning bid
@@ -318,13 +312,17 @@ exports.acceptBid = async (req, res) => {
       metadata: {
         auctionId: auction._id.toString(),
         productId: auction.product._id.toString(),
-        bidId: winningBid.id || winningBid._id
+        bidId: winningBid._id.toString()
       }
     });
 
     auction.paymentIntentId = paymentIntent.id;
     auction.status = 'ended';
-    auction.winningBid = winningBid;
+    auction.winningBid = {
+      user: winningBid.user._id,
+      amount: winningBid.amount,
+      time: new Date()
+    };
     auction.acceptedAt = new Date();
     await auction.save();
 
