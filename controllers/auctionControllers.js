@@ -238,7 +238,8 @@ exports.endAuction = async (req, res) => {
 // Accept a bid
 exports.acceptBid = async (req, res) => {
   try {
-    const { auctionId, bidId } = req.params;
+    const { auctionId } = req.params;
+    const { bidId } = req.body;
     console.log('Accepting bid:', { auctionId, bidId });
 
     const auction = await Auction.findById(auctionId)
