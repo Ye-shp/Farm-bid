@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const PaymentService = require('../services/paymentService');
 const Transaction = require('../models/Transaction');
-const { auth } = require('../middleware/auth');
+const { auth } = require('../middleware/authMiddleware');
 
 // Create payment intent
 router.post('/create-intent', auth, async (req, res) => {

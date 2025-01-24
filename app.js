@@ -19,7 +19,11 @@ const server = http.createServer(app);
 // Socket.IO setup with CORS
 const io = socketIo(server, {
   cors: {
-    origin: ['http://localhost:3000', 'https://elipae.com'],
+    origin: [
+      'http://localhost:3000',
+      'https://elipae.com',
+      'https://farm-bid-3998c30f5108.herokuapp.com'
+    ],
     methods: ['GET', 'POST'],
     credentials: true,
     allowedHeaders: ['Authorization']
@@ -157,4 +161,4 @@ process.on('unhandledRejection', (reason, promise) => {
 
 // Server running
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => console.log(`Server running on port ${PORT}`));
