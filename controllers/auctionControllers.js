@@ -308,10 +308,21 @@ exports.acceptBid = async (req, res) => {
       keys: Object.keys(winningBid)
     });
 
-    // Use PaymentService to handle payment intent creation
-    const { paymentIntent } = await PaymentService.handleBidAcceptance(auction, winningBid);
-    auction.paymentIntentId = paymentIntent.id;
+    // Create payment intent for the winning bid
+    const { paymentIntent } = await PaymentService.createPaymentIntent({
+      amount: winningBid.amount,
+      sourceType: 'auction',
+      sourceId: auction._id,
+      buyerId: winningBid.user._id,
+      sellerId: auction.product.user._id,
+      metadata: {
+        auctionId: auction._id.toString(),
+        productId: auction.product._id.toString(),
+        bidId: winningBid.id || winningBid._id
+      }
+    });
 
+    auction.paymentIntentId = paymentIntent.id;
     auction.status = 'ended';
     auction.winningBid = winningBid;
     auction.acceptedAt = new Date();
