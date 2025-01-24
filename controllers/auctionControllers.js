@@ -290,7 +290,7 @@ exports.acceptBid = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to accept bids for this auction' });
     }
 
-    const winningBid = auction.bids.find(bid => bid._id.toString() === bidId);
+    const winningBid = auction.bids.find(bid => bid._id.equals(bidId));
     if (!winningBid) {
       console.log('Bid not found:', { auctionId, bidId });
       return res.status(404).json({ message: 'Bid not found' });
