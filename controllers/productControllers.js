@@ -102,13 +102,16 @@ exports.getallowedCategories = async (req,res)=>{
 };
 
 exports.getallowedProducts = async (req,res)=>{
-  re.json(allowedProducts);
+  res.json(allowedProducts);
 };
 
-// Get products for the authenticated farmer
+// Get products for a specific farmer
 exports.getFarmerProducts = async (req, res) => {
   try {
-    const products = await Product.find({ user: req.user.id });
+    // Get farmerId from query parameter, fallback to authenticated user's id
+    const farmerId = req.query.farmerId || req.user.id;
+    
+    const products = await Product.find({ user: farmerId });
     res.json(products);
   } catch (err) {
     console.error('Error fetching products:', err);
