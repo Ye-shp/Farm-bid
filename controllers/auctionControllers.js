@@ -1,8 +1,8 @@
 const Auction = require('../models/Auctions');
-const { Product } = require('../models/Product');  // Destructure Product from the exports
-const mongoose = require('mongoose');  
+const { Product } = require('../models/Product');
+const mongoose = require('mongoose');
 const Notification = require('../models/Notification');
-const stripe = require('../config/stripeconfig');
+const PaymentService = require('../services/paymentService');
 const { createAndEmitNotification } = require('./notificationController');
 
 //Error in checkAndUpdateExpiredAuctions: TypeError: Cannot read properties of null (reading '_id')
@@ -22,21 +22,12 @@ const checkAndUpdateExpiredAuctions = async () => {
         const winningBid = auction.bids[auction.bids.length - 1];
         auction.winningBid = winningBid;
         
-        // Create a payment intent for the winning amount
-        const paymentIntent = await stripe.paymentIntents.create({
-          amount: winningBid.amount * 100,
-          currency: 'usd',
-          automatic_payment_methods: { enabled: true },
-          metadata: {
-            auctionId: auction._id.toString(),
-            productId: auction.product._id.toString()
-          }
-        });
-        
+        // Use PaymentService to handle payment intent creation
+        const { paymentIntent } = await PaymentService.handleAuctionEnd(auction);
         auction.paymentIntentId = paymentIntent.id;
 
         // Notify the winner
-        const winnerNotification = new Notification({
+        await createAndEmitNotification({
           user: winningBid.user,
           message: `Congratulations! You won the auction for "${auction.product.title}" with a bid of $${winningBid.amount}. Please complete your payment.`,
           type: 'auction_won',
@@ -45,10 +36,9 @@ const checkAndUpdateExpiredAuctions = async () => {
             paymentIntentClientSecret: paymentIntent.client_secret
           }
         });
-        await winnerNotification.save();
 
         // Notify the farmer
-        const farmerNotification = new Notification({
+        await createAndEmitNotification({
           user: auction.product.user,
           message: `Your auction for "${auction.product.title}" has ended with a winning bid of $${winningBid.amount}.`,
           type: 'auction_ended',
@@ -56,15 +46,13 @@ const checkAndUpdateExpiredAuctions = async () => {
             auctionId: auction._id
           }
         });
-        await farmerNotification.save();
       } else {
         // Notify the farmer that no bids were placed
-        const farmerNotification = new Notification({
+        await createAndEmitNotification({
           user: auction.product.user,
           message: `Your auction for "${auction.product.title}" has ended with no bids.`,
           type: 'auction_ended_no_bids'
         });
-        await farmerNotification.save();
       }
 
       auction.status = 'ended';
@@ -283,32 +271,18 @@ exports.acceptBid = async (req, res) => {
       amount: winningBid.amount
     });
 
-    // Create payment intent for the winning amount
-    console.log('Creating payment intent for amount:', winningBid.amount);
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(winningBid.amount * 100),
-      currency: 'usd',
-      automatic_payment_methods: { enabled: true },
-      metadata: {
-        auctionId: auction._id.toString(),
-        productId: auction.product._id.toString()
-      }
-    });
-    
-    console.log('Payment intent created:', {
-      id: paymentIntent.id,
-      clientSecret: paymentIntent.client_secret ? 'present' : 'missing'
-    });
-
+    // Use PaymentService to handle payment intent creation
+    const { paymentIntent } = await PaymentService.handleBidAcceptance(auction, winningBid);
     auction.paymentIntentId = paymentIntent.id;
+
     auction.status = 'ended';
     auction.winningBid = winningBid;
     auction.acceptedAt = new Date();
     await auction.save();
 
     // Create buyer notification with payment information
-    console.log('Creating buyer notification for user:', winningBid.user._id);
-    const buyerNotification = await createAndEmitNotification(req, winningBid.user._id, {
+    await createAndEmitNotification({
+      user: winningBid.user,
       message: `Congratulations! Your bid of $${winningBid.amount} was accepted for "${auction.product.title}". Click here to complete your payment.`,
       type: 'auction_won',
       metadata: {
@@ -318,15 +292,10 @@ exports.acceptBid = async (req, res) => {
         paymentIntentClientSecret: paymentIntent.client_secret
       }
     });
-    console.log('Buyer notification created:', {
-      id: buyerNotification._id,
-      type: buyerNotification.type,
-      userId: buyerNotification.user
-    });
 
     // Create seller notification
-    console.log('Creating seller notification for user:', auction.product.user._id);
-    const sellerNotification = await createAndEmitNotification(req, auction.product.user._id, {
+    await createAndEmitNotification({
+      user: auction.product.user,
       message: `A bid of $${winningBid.amount} has been accepted for your auction "${auction.product.title}".`,
       type: 'auction_ended',
       metadata: {
@@ -335,18 +304,13 @@ exports.acceptBid = async (req, res) => {
         title: auction.product.title
       }
     });
-    console.log('Seller notification created:', {
-      id: sellerNotification._id,
-      type: sellerNotification.type,
-      userId: sellerNotification.user
-    });
 
     res.json({ 
       message: 'Bid accepted successfully', 
       auction,
       notifications: {
-        buyer: buyerNotification._id,
-        seller: sellerNotification._id
+        buyer: winningBid.user,
+        seller: auction.product.user
       }
     });
   } catch (error) {
@@ -372,24 +336,10 @@ exports.createPaymentIntent = async (req, res) => {
       return res.status(403).json({ message: 'Only the auction winner can make payment' });
     }
 
-    // Create or retrieve payment intent
-    let paymentIntent;
-    if (auction.paymentIntentId) {
-      paymentIntent = await stripe.paymentIntents.retrieve(auction.paymentIntentId);
-    } else {
-      paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(amount * 100), // Convert to cents
-        currency: 'usd',
-        automatic_payment_methods: { enabled: true },
-        metadata: {
-          auctionId: auction._id.toString(),
-          productId: auction.product.toString()
-        }
-      });
-      
-      auction.paymentIntentId = paymentIntent.id;
-      await auction.save();
-    }
+    // Use PaymentService to handle payment intent creation
+    const { paymentIntent } = await PaymentService.handlePaymentIntentCreation(auction, amount);
+    auction.paymentIntentId = paymentIntent.id;
+    await auction.save();
 
     res.json({
       clientSecret: paymentIntent.client_secret
@@ -406,7 +356,7 @@ exports.handlePaymentWebhook = async (req, res) => {
   let event;
 
   try {
-    event = stripe.webhooks.constructEvent(
+    event = PaymentService.webhooks.constructEvent(
       req.body,
       sig,
       process.env.STRIPE_WEBHOOK_SECRET
@@ -429,13 +379,13 @@ exports.handlePaymentWebhook = async (req, res) => {
         // Create notifications for both buyer and seller
         const winningBid = auction.bids[auction.bids.length - 1];
         
-        await Notification.create({
+        await createAndEmitNotification({
           user: winningBid.user,
           message: `Payment successful for auction "${auction.title}". The seller will be notified to fulfill your order.`,
           type: 'payment_success'
         });
 
-        await Notification.create({
+        await createAndEmitNotification({
           user: auction.product.user,
           message: `Payment received for auction "${auction.title}". Please proceed with order fulfillment.`,
           type: 'payment_received'
