@@ -2,10 +2,10 @@ const express = require('express');
 const router = express.Router();
 const PaymentService = require('../services/paymentService');
 const Transaction = require('../models/Transaction');
-const { auth } = require('../middleware/authMiddleware');
+const { authMiddleware } = require('../middleware/authMiddleware');
 
 // Create payment intent
-router.post('/create-intent', auth, async (req, res) => {
+router.post('/create-intent', authMiddleware, async (req, res) => {
   try {
     const { amount, sourceType, sourceId, sellerId } = req.body;
     
@@ -33,7 +33,7 @@ router.post('/create-intent', auth, async (req, res) => {
 });
 
 // Process payout
-router.post('/process-payout/:transactionId', auth, async (req, res) => {
+router.post('/process-payout/:transactionId', authMiddleware, async (req, res) => {
   try {
     const { transactionId } = req.params;
     
@@ -67,7 +67,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
 });
 
 // Get transaction status
-router.get('/transaction/:transactionId', auth, async (req, res) => {
+router.get('/transaction/:transactionId', authMiddleware, async (req, res) => {
   try {
     const transaction = await Transaction.findById(req.params.transactionId)
       .populate('buyer', 'name email')
