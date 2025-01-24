@@ -272,7 +272,7 @@ exports.acceptBid = async (req, res) => {
       id: auction._id,
       productId: auction.product._id,
       bidsCount: auction.bids.length,
-      bids: auction.bids.map(bid => ({ id: bid._id, amount: bid.amount }))
+      bids: auction.bids.map(bid => ({ id: bid.id || bid._id, amount: bid.amount }))
     });
 
     // Verify the user is the owner of the product
@@ -289,16 +289,23 @@ exports.acceptBid = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to accept bids for this auction' });
     }
 
-    const winningBid = auction.bids.find(bid => bid._id.toString() === bidId);
+    // Log all bids for debugging
+    console.log('All bids:', auction.bids.map(bid => ({
+      id: bid.id || bid._id,
+      amount: bid.amount,
+      keys: Object.keys(bid)
+    })));
+
+    const winningBid = auction.bids.find(bid => (bid.id || bid._id).toString() === bidId);
     if (!winningBid) {
       console.log('Bid not found:', { auctionId, bidId });
       return res.status(404).json({ message: 'Bid not found' });
     }
 
     console.log('Found winning bid:', {
-      bidId: winningBid._id,
-      userId: winningBid.user._id,
-      amount: winningBid.amount
+      bidId: winningBid.id || winningBid._id,
+      amount: winningBid.amount,
+      keys: Object.keys(winningBid)
     });
 
     // Use PaymentService to handle payment intent creation
