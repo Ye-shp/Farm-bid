@@ -257,12 +257,23 @@ exports.acceptBid = async (req, res) => {
         path: 'product',
         populate: { path: 'user' }
       })
-      .populate('bids.user');
+      .populate({
+        path: 'bids',
+        populate: { path: 'user' }
+      });
 
     if (!auction) {
       console.log('Auction not found:', auctionId);
       return res.status(404).json({ message: 'Auction not found' });
     }
+
+    // Log auction data for debugging
+    console.log('Found auction:', {
+      id: auction._id,
+      productId: auction.product._id,
+      bidsCount: auction.bids.length,
+      bids: auction.bids.map(bid => ({ id: bid._id, amount: bid.amount }))
+    });
 
     // Verify the user is the owner of the product
     console.log('Checking authorization:', {
