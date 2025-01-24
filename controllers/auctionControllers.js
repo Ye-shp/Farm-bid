@@ -265,7 +265,12 @@ exports.acceptBid = async (req, res) => {
     }
 
     // Verify the user is the owner of the product
-    if (auction.product.user.toString() !== req.user.id) {
+    console.log('Checking authorization:', {
+      productOwner: auction.product.user._id,
+      requestUser: req.user.id
+    });
+
+    if (auction.product.user._id.toString() !== req.user.id) {
       console.log('Unauthorized bid acceptance:', {
         productOwner: auction.product.user,
         requestUser: req.user.id
