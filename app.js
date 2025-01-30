@@ -22,7 +22,7 @@ const io = socketIo(server, {
     origin: [
       'http://localhost:3000',
       'https://elipae.com',
-      'https://farm-bid-3998c30f5108.herokuapp.com'
+      'https://farm-bid.onrender.com'
     ],
     methods: ['GET', 'POST'],
     credentials: true,
