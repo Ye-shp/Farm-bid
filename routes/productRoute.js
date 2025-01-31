@@ -8,6 +8,8 @@ const {
   getallowedProducts,
   getallowedCategories,
   approveProduct,
+  productDetails,
+  productAnalytics,
 } = require('../controllers/productControllers'); 
 
 const {authMiddleware} = require('../middleware/authMiddleware');
@@ -16,9 +18,13 @@ const {authMiddleware} = require('../middleware/authMiddleware');
 router.post('/', authMiddleware, createProduct);
 router.get('/farmer-products', authMiddleware, getFarmerProducts);
 router.patch('/:productId/approve', authMiddleware, approveProduct);
+router.get('/:productId/analytics', authMiddleware, getProductanalytics);
+
 
 //Dont require auth
 router.get('/categories', getproductCategories);
+
+router.get('/:productId', productDetails ); 
 
 router.get('/allowed-categories',authMiddleware, getallowedCategories)
 

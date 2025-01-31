@@ -31,7 +31,6 @@ const upload = multer({
   },
 });
 
-//Product categories 
 exports.getproductCategories = (req, res) => {
   try {
     res.json(productCategories);
@@ -41,7 +40,69 @@ exports.getproductCategories = (req, res) => {
   }
 };
 
-// Create a new product with an image
+// Update productDetails controller
+exports.productDetails = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.productId)
+      .select('title customProduct category totalQuantity description imageUrl status createdAt user')
+      .lean();
+
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    // Public inventory data
+    const responseData = {
+      ...product,
+      displayName: product.title || product.customProduct,
+      stockStatus: product.totalQuantity > 0 ? 'In Stock' : 'Out of Stock',
+      lastUpdated: product.createdAt,
+      isOwner: false // Default value
+    };
+
+    // Add ownership flag if authenticated
+    if (req.user && product.user.toString() === req.user.id) {
+      responseData.isOwner = true;
+    }
+
+    res.json(responseData);
+
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Add new analytics controller
+exports.productAnalytics = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.productId)
+      .select('totalQuantity user createdAt')
+      .populate('user', 'name email');
+
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    // Authorization check
+    if (product.user._id.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Unauthorized access' });
+    }
+
+    // Analytics calculations
+    const analyticsData = {
+      currentStock: product.totalQuantity,
+      daysSinceCreation: Math.floor((Date.now() - product.createdAt) / (1000 * 3600 * 24)),
+      stockHealth: product.totalQuantity > 50 ? 'Healthy' : 'Needs Restock',
+      estimatedRestockDays: product.totalQuantity > 50 ? null : 7 // Example calculation
+    };
+
+    res.json(analyticsData);
+
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 exports.createProduct = [
   upload.single('image'),
   async (req, res) => {
