@@ -45,7 +45,7 @@ exports.getproductCategories = (req, res) => {
 exports.createProduct = [
   upload.single('image'),
   async (req, res) => {
-    const { category, title, customProduct, description } = req.body;
+    const { category, title, customProduct, description, totalQuantity} = req.body;
 
     // Ensure user is authenticated
     if (!req.user || !req.user.id) {
