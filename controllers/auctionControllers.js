@@ -143,18 +143,24 @@ exports.getAuctionDetails = async (req, res) => {
 // Create a new auction
 exports.createAuction = async (req, res) => {
   try {
-    const { productId, startingPrice, endTime, minIncrement } = req.body;
+    const { productId, startingPrice, endTime, minIncrement, auctionQuantity} = req.body;
     
     const product = await Product.findById(productId);
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
-
+    if (product.totalQuantity < auctionQuantity){
+      return res.status(404).json({message: 'Auction quantity is larger that available quantity'});
+    }
+    product.totalQuantity -= auctionQuantity;
+    await product.save();
+    
     const auction = new Auction({
       product: productId,
       startingPrice,
       currentPrice: startingPrice,
       endTime,
+      auctionQunatity,
       minIncrement,
       status: 'active'
     });

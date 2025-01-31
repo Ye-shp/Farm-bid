@@ -19,6 +19,11 @@ const ProductSchema = new mongoose.Schema({
     type: String,
     enum: allowedCategories,  
     required: true,
+  }, 
+  totalQuantity: {
+    type: Number, 
+    required :true, 
+    min: 0 
   },
   title: {
     type: String,

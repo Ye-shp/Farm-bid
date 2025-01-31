@@ -3,25 +3,29 @@ const mongoose = require('mongoose');
 const AuctionSchema = new mongoose.Schema({
   product: { 
     type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Product', 
+    ref: 'Product',  
     required: true,
-    index: true  // Add index for faster product lookups
+    index: true  
   },
   startingPrice: { 
     type: Number, 
     required: true 
   },
+  auctionQuantity: {
+    type: Number,
+    required: true, 
+  },
   endTime: { 
     type: Date, 
     required: true,
-    index: true  // Add index to optimize expired auction queries
+    index: true  
   },
   status: { 
     type: String, 
     required: true,
-    enum: ['active', 'ended'],  // Restrict to valid values
+    enum: ['active', 'ended'], 
     default: 'active',
-    index: true  // Add index for status filtering
+    index: true 
   }, 
   bids: [{
     amount: { 
@@ -62,7 +66,7 @@ const AuctionSchema = new mongoose.Schema({
     type: Date
   }
 }, {
-  timestamps: true  // Adds createdAt and updatedAt fields
+  timestamps: true  
 });
 
 // Compound index for querying active auctions that need to be ended
