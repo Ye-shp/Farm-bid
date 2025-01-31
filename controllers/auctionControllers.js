@@ -154,13 +154,13 @@ exports.createAuction = async (req, res) => {
     }
     product.totalQuantity -= auctionQuantity;
     await product.save();
-    
+
     const auction = new Auction({
       product: productId,
       startingPrice,
       currentPrice: startingPrice,
       endTime,
-      auctionQunatity,
+      auctionQuantity,
       minIncrement,
       status: 'active'
     });
