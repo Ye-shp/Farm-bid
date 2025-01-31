@@ -79,6 +79,7 @@ exports.createProduct = [
         description,
         imageUrl,
         user: req.user.id,
+        totalQuantity,
         status: 'Approved',
       });
 
