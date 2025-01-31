@@ -45,7 +45,8 @@ exports.getproductCategories = (req, res) => {
 exports.createProduct = [
   upload.single('image'),
   async (req, res) => {
-    const { category, title, customProduct, description } = req.body;
+    const { category, title, customProduct, description, } = req.body;
+    const totalQuantity = Number(req.body.totalQuantity);
 
     // Ensure user is authenticated
     if (!req.user || !req.user.id) {
@@ -57,6 +58,10 @@ exports.createProduct = [
       return res.status(400).json({ error: 'Invalid category provided.' });
     }
 
+    if (isNaN(totalQuantity) || totalQuantity <= 0 || totalQuantity > 1000000) {
+      return res.status(400).json({ error: 'Invalid totalQuantity provided' });
+    }
+    
     // Validation: Ensure either title or customProduct is provided, but not both
     if (!title && !customProduct) {
       return res.status(400).json({ error: 'Please provide either a product title or a custom product name.' });
