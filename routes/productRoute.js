@@ -18,7 +18,7 @@ const {authMiddleware} = require('../middleware/authMiddleware');
 router.post('/', authMiddleware, createProduct);
 router.get('/farmer-products', authMiddleware, getFarmerProducts);
 router.patch('/:productId/approve', authMiddleware, approveProduct);
-router.get('/:productId/analytics', authMiddleware, getProductanalytics);
+router.get('/:productId/analytics', authMiddleware, getProductAnalytics);
 
 
 //Dont require auth
