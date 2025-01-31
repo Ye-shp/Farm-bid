@@ -73,7 +73,7 @@ exports.productDetails = async (req, res) => {
 };
 
 // Add new analytics controller
-exports.productAnalytics = async (req, res) => {
+exports.getproductAnalytics = async (req, res) => {
   try {
     const product = await Product.findById(req.params.productId)
       .select('totalQuantity user createdAt')
