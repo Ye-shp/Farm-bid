@@ -9,7 +9,7 @@ const {
   getallowedCategories,
   approveProduct,
   productDetails,
-  productAnalytics,
+  getproductAnalytics,
 } = require('../controllers/productControllers'); 
 
 const {authMiddleware} = require('../middleware/authMiddleware');
