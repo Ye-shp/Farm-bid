@@ -9,9 +9,114 @@ const productCategories = {
   Other: ['Honey', 'Grains', 'Corn', 'Beans', 'Nuts'],
 };
 
+// Certification and Food Safety Sub-schema
+const CertificationSchema = new mongoose.Schema({
+  organic: {
+    isCertified: Boolean,
+    certifyingBody: String,
+    certificationNumber: String,
+    validFrom: Date,
+    validUntil: Date
+  },
+  foodSafety: [{
+    certificationType: {
+      type: String,
+      enum: ['GAP', 'HACCP', 'FSMA', 'SQF', 'BRC', 'Other']
+    },
+    otherCertification: String,
+    auditScore: Number,
+    auditDate: Date,
+    certifyingBody: String
+  }],
+  otherCertifications: [{
+    name: String,
+    certificationBody: String,
+    validUntil: Date
+  }]
+});
+
+// Product Specifications Sub-schema
+const ProductSpecsSchema = new mongoose.Schema({
+  varieties: [String],
+  gradeStandard: String,
+  size: {
+    min: Number,
+    max: Number,
+    unit: {
+      type: String,
+      enum: ['cm', 'mm', 'g', 'kg', 'oz', 'lb']
+    },
+    packSize: {
+      quantity: Number,
+      unit: String
+    }
+  },
+  seasonalAvailability: [{
+    month: {
+      type: String,
+      enum: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+             'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    },
+    available: Boolean
+  }],
+  shelfLife: {
+    duration: Number,
+    unit: {
+      type: String,
+      enum: ['days', 'weeks', 'months']
+    }
+  },
+  storageRequirements: {
+    temperature: {
+      min: Number,
+      max: Number,
+      unit: {
+        type: String,
+        enum: ['°C', '°F'],
+        default: '°C'
+      }
+    },
+    humidity: {
+      min: Number,
+      max: Number,
+      unit: {
+        type: String,
+        default: '%'
+      }
+    }
+  }
+});
+
+// Production Practices Sub-schema
+const ProductionPracticesSchema = new mongoose.Schema({
+  growingMethod: {
+    type: String,
+    enum: ['Conventional', 'Organic', 'Hydroponic', 
+           'Aquaponic', 'Regenerative', 'Biodynamic']
+  },
+  pestManagement: String,
+  postHarvestHandling: String,
+  waterTesting: [{
+    testDate: Date,
+    parameter: String,
+    result: String,
+    standard: String
+  }],
+  fieldLocation: {
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point'
+    },
+    coordinates: {
+      type: [Number],  // [longitude, latitude]
+      required: true
+    }
+  },
+  growingConditions: String
+});
 
 const allowedProducts = Object.values(productCategories).flat();
-
 const allowedCategories = Object.keys(productCategories);
 
 const ProductSchema = new mongoose.Schema({
@@ -22,7 +127,7 @@ const ProductSchema = new mongoose.Schema({
   }, 
   totalQuantity: {
     type: Number, 
-    required :true, 
+    required: true, 
     min: 0 
   },
   title: {
@@ -39,17 +144,31 @@ const ProductSchema = new mongoose.Schema({
     },
     trim: true,
   },
-  description: { type: String, required: true },
-  imageUrl: { type: String },
-  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  description: { 
+    type: String, 
+    required: true 
+  },
+  imageUrl: { 
+    type: String 
+  },
+  certifications: CertificationSchema,
+  productSpecs: ProductSpecsSchema,
+  productionPractices: ProductionPracticesSchema,
+  user: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'User', 
+    required: true 
+  },
   status: {
     type: String,
     enum: ['Approved', 'Pending Approval', 'Rejected'],
     default: 'Approved',
   },
-  createdAt: { type: Date, default: Date.now },
+  createdAt: { 
+    type: Date, 
+    default: Date.now 
+  },
 });
-
 
 ProductSchema.pre('validate', function (next) {
   if (!this.title && !this.customProduct) {
