@@ -42,6 +42,13 @@ exports.getproductCategories = (req, res) => {
   }
 };
 
+exports.getallowedCategories = async (req,res)=>{
+  res.json(allowedCategories);
+};
+exports.getallowedProducts = async (req,res)=>{
+  res.json(allowedProducts);
+};
+
 // Updated productDetails controller with technical specs
 exports.productDetails = async (req, res) => {
   try {
