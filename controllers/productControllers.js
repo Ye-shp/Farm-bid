@@ -1,5 +1,7 @@
 const AWS = require('aws-sdk');
 const {Product, productCategories, allowedCategories, allowedProducts }= require('../models/Product');
+const Auction = require('../models/Product');
+const Order = require('../models/Order');
 const multer = require('multer');
 const multerS3 = require('multer-s3');
 
@@ -198,5 +200,306 @@ exports.approveProduct = async (req, res) => {
   } catch (err) {
     console.error('Error approving product:', err);
     res.status(500).json({ message: 'Failed to approve product', error: err.message });
+  }
+};
+
+const getproductAnalytics = async (req, res) => {
+    try {
+        const { productId } = req.params;
+        
+        const product = await Product.findById(productId);
+        if (!product) {
+            return res.status(404).json({
+                status: 'error',
+                message: 'Product not found'
+            });
+        }
+
+        // Verify user has access to this product
+        if (product.user.toString() !== req.user._id.toString()) {
+            return res.status(403).json({
+                status: 'error',
+                message: 'Unauthorized access to product analytics'
+            });
+        }
+
+        // Get analytics timeframe from query params or default to last 30 days
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - (req.query.days || 30));
+
+        // Gather core product metrics
+        const [
+            inventoryMetrics,
+            seasonalityMetrics,
+            certificationStatus,
+            qualityMetrics
+        ] = await Promise.all([
+            calculateInventoryMetrics(product, startDate, endDate),
+            analyzeSeasonalPatterns(product, startDate, endDate),
+            checkCertificationStatus(product),
+            getQualityMetrics(product, startDate, endDate)
+        ]);
+
+        // Gather auction and order metrics
+        const [
+            auctionMetrics,
+            orderMetrics,
+            priceAnalysis,
+            buyerAnalytics
+        ] = await Promise.all([
+            calculateAuctionMetrics(productId, startDate, endDate),
+            calculateOrderMetrics(productId, startDate, endDate),
+            analyzePriceHistory(productId, startDate, endDate),
+            analyzeBuyerBehavior(productId, startDate, endDate)
+        ]);
+
+        // Compile comprehensive analytics
+        const analytics = {
+            timeframe: {
+                start: startDate,
+                end: endDate
+            },
+            overview: {
+                totalRevenue: calculateTotalRevenue(auctionMetrics, orderMetrics),
+                averagePrice: priceAnalysis.averagePrice,
+                totalQuantitySold: calculateTotalQuantitySold(auctionMetrics, orderMetrics),
+                currentStock: product.totalQuantity,
+                activeAuctions: auctionMetrics.activeAuctions
+            },
+            inventory: {
+                ...inventoryMetrics,
+                projectedStockout: calculateProjectedStockout(product, auctionMetrics.demandRate)
+            },
+            auctions: {
+                ...auctionMetrics,
+                bidPatterns: analyzeBidPatterns(auctionMetrics.auctionHistory),
+                optimalStartingPrice: calculateOptimalStartingPrice(auctionMetrics.auctionHistory),
+                seasonalAuctionPerformance: analyzeSeasonalAuctionPerformance(auctionMetrics.auctionHistory)
+            },
+            orders: {
+                ...orderMetrics,
+                fulfillmentMetrics: calculateFulfillmentMetrics(orderMetrics.orderHistory),
+                paymentAnalytics: analyzePaymentPatterns(orderMetrics.orderHistory)
+            },
+            pricing: {
+                ...priceAnalysis,
+                priceElasticity: calculatePriceElasticity(auctionMetrics.auctionHistory),
+                competitivePricing: await analyzeCompetitivePricing(product.category, priceAnalysis)
+            },
+            buyers: {
+                ...buyerAnalytics,
+                loyaltyMetrics: calculateBuyerLoyalty(buyerAnalytics.buyerHistory),
+                geographicDistribution: analyzeGeographicDistribution(buyerAnalytics.buyerHistory)
+            },
+            seasonality: {
+                ...seasonalityMetrics,
+                auctionSeasonality: analyzeAuctionSeasonality(auctionMetrics.auctionHistory),
+                priceSeasonality: analyzePriceSeasonality(priceAnalysis.priceHistory)
+            },
+            recommendations: generateComprehensiveRecommendations({
+                product,
+                inventoryMetrics,
+                auctionMetrics,
+                orderMetrics,
+                priceAnalysis,
+                buyerAnalytics,
+                seasonalityMetrics,
+                qualityMetrics
+            })
+        };
+
+        res.status(200).json({
+            status: 'success',
+            data: analytics
+        });
+
+    } catch (error) {
+        console.error('Product Analytics Error:', error);
+        res.status(500).json({
+            status: 'error',
+            message: 'Error generating product analytics',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+};
+
+// Helper Functions
+async function calculateAuctionMetrics(productId, startDate, endDate) {
+    try {
+        const auctionHistory = await Auction.find({
+            product: productId,
+            createdAt: { $gte: startDate, $lte: endDate }
+        }).populate('bids.user', 'name location');
+
+        const activeAuctions = await Auction.countDocuments({
+            product: productId,
+            status: 'active',
+            endTime: { $gte: new Date() }
+        });
+
+        const totalAuctions = auctionHistory.length;
+        const completedAuctions = auctionHistory.filter(a => a.status === 'ended');
+        const successfulAuctions = completedAuctions.filter(a => a.winningBid);
+        
+        const successRate = completedAuctions.length > 0 
+            ? (successfulAuctions.length / completedAuctions.length) * 100 
+            : 0;
+
+        const averageBidsPerAuction = auctionHistory.reduce((acc, auction) => 
+            acc + (auction.bids ? auction.bids.length : 0), 0) / Math.max(totalAuctions, 1);
+
+        return {
+            activeAuctions,
+            auctionHistory,
+            totalAuctions,
+            successRate,
+            averageBidsPerAuction,
+            highestBid: calculateHighestBid(auctionHistory),
+            bidVelocity: calculateBidVelocity(auctionHistory),
+            optimalDuration: calculateOptimalDuration(auctionHistory),
+            demandRate: calculateDemandTrend(auctionHistory)
+        };
+    } catch (error) {
+        console.error('Auction Metrics Error:', error);
+        throw new Error('Failed to calculate auction metrics');
+    }
+}
+
+async function calculateOrderMetrics(productId, startDate, endDate) {
+    try {
+        const orderHistory = await Order.find({
+            auction: { $in: await Auction.find({ product: productId }).select('_id') },
+            createdAt: { $gte: startDate, $lte: endDate }
+        }).populate('buyer', 'name location');
+
+        const totalOrders = orderHistory.length;
+        const totalRevenue = orderHistory.reduce((sum, order) => sum + order.amount, 0);
+        const fulfillmentRate = orderHistory.filter(order => 
+            order.status === 'fulfilled').length / Math.max(totalOrders, 1) * 100;
+
+        return {
+            orderHistory,
+            totalOrders,
+            totalRevenue,
+            averageOrderValue: totalOrders > 0 ? totalRevenue / totalOrders : 0,
+            fulfillmentRate,
+            paymentSuccessRate: calculatePaymentSuccessRate(orderHistory),
+            orderTrends: analyzeOrderTrends(orderHistory)
+        };
+    } catch (error) {
+        console.error('Order Metrics Error:', error);
+        throw new Error('Failed to calculate order metrics');
+    }
+}
+
+exports.getProductAnalytics = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    
+    // Helper functions
+    const calculateAuctionMetrics = async (productId, startDate, endDate) => {
+      const auctionHistory = await Auction.find({
+        product: productId,
+        createdAt: { $gte: startDate, $lte: endDate }
+      }).populate('bids.user', 'name location');
+
+      const activeAuctions = await Auction.countDocuments({
+        product: productId,
+        status: 'active',
+        endTime: { $gte: new Date() }
+      });
+
+      const totalAuctions = auctionHistory.length;
+      const completedAuctions = auctionHistory.filter(a => a.status === 'ended');
+      const successfulAuctions = completedAuctions.filter(a => a.winningBid);
+      
+      const successRate = completedAuctions.length > 0 
+        ? (successfulAuctions.length / completedAuctions.length) * 100 
+        : 0;
+
+      return {
+        activeAuctions,
+        auctionHistory,
+        totalAuctions,
+        successRate,
+        averageBidsPerAuction: auctionHistory.reduce((acc, auction) => 
+          acc + (auction.bids?.length || 0), 0) / Math.max(totalAuctions, 1)
+      };
+    };
+
+    const calculateOrderMetrics = async (productId, startDate, endDate) => {
+      const orderHistory = await Order.find({
+        auction: { $in: await Auction.find({ product: productId }).select('_id') },
+        createdAt: { $gte: startDate, $lte: endDate }
+      }).populate('buyer', 'name location');
+
+      const totalOrders = orderHistory.length;
+      const totalRevenue = orderHistory.reduce((sum, order) => sum + order.amount, 0);
+
+      return {
+        orderHistory,
+        totalOrders,
+        totalRevenue,
+        averageOrderValue: totalOrders > 0 ? totalRevenue / totalOrders : 0,
+        fulfillmentRate: orderHistory.filter(order => 
+          order.status === 'fulfilled').length / Math.max(totalOrders, 1) * 100
+      };
+    };
+
+    // Main controller logic
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'Product not found'
+      });
+    }
+
+    if (product.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        status: 'fail',
+        message: 'Unauthorized access to product analytics'
+      });
+    }
+
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - (req.query.days || 30));
+
+    const [auctionMetrics, orderMetrics] = await Promise.all([
+      calculateAuctionMetrics(productId, startDate, endDate),
+      calculateOrderMetrics(productId, startDate, endDate)
+    ]);
+
+    const analytics = {
+      timeframe: { start: startDate, end: endDate },
+      overview: {
+        totalRevenue: auctionMetrics.totalAuctions + orderMetrics.totalRevenue,
+        averagePrice: orderMetrics.totalRevenue / orderMetrics.totalOrders || 0,
+        currentStock: product.totalQuantity,
+        activeAuctions: auctionMetrics.activeAuctions
+      },
+      auctions: {
+        ...auctionMetrics,
+        successRate: `${auctionMetrics.successRate.toFixed(1)}%`
+      },
+      orders: {
+        ...orderMetrics,
+        fulfillmentRate: `${orderMetrics.fulfillmentRate.toFixed(1)}%`
+      }
+    };
+
+    res.status(200).json({
+      status: 'success',
+      data: analytics
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to generate product analytics',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
