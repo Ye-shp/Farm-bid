@@ -1,13 +1,29 @@
-// In routes/notifications.js
 const express = require('express');
 const router = express.Router();
-const { getNotifications, markNotificationAsRead } = require('../controllers/notificationController');
-const {authMiddleware} = require('../middleware/authMiddleware');
+const {
+  createNotification,
+  getNotifications,
+  markAsRead,
+  markAllAsRead,
+  getNotificationPreferences,
+  updateNotificationPreferences
+} = require('../controllers/notificationController');
+const { authMiddleware } = require('../middleware/authMiddleware');
 
+// Notification creation
+router.post('/', authMiddleware, createNotification);
 
+// Notification retrieval
 router.get('/', authMiddleware, getNotifications);
-router.put('/:notificationId/read', authMiddleware, markNotificationAsRead);
 
+// Single notification actions
+router.put('/:notificationId/read', authMiddleware, markAsRead);
 
+// Bulk notification actions
+router.put('/mark-all-read', authMiddleware, markAllAsRead);                                                                                                                                                                                       
 
-module.exports = router;
+// Notification preferences
+router.get('/preferences', authMiddleware, getNotificationPreferences);
+router.put('/preferences', authMiddleware, updateNotificationPreferences);
+
+module.exports = router;                                                                                                                                                                                                                                                                                                                                                                                                                   
