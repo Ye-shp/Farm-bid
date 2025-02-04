@@ -203,7 +203,7 @@ exports.approveProduct = async (req, res) => {
   }
 };
 
-const getProductAnalytics = async (req, res) => {
+const getproductAnalytics = async (req, res) => {
     try {
         const { productId } = req.params;
         
