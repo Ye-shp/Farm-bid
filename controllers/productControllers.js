@@ -393,7 +393,7 @@ async function calculateOrderMetrics(productId, startDate, endDate) {
     }
 }
 
-exports.getProductAnalytics = async (req, res) => {
+exports.getproductAnalytics = async (req, res) => {
   try {
     const { productId } = req.params;
     
