@@ -7,10 +7,9 @@ const {
   DELIVERY_CHANNELS
 } = require('../models/Notification');
 const { User } = require('../models/User');
-const Auction = require('../models/Auction');
-const Payment = require('../models/Payment');
-const Delivery = require('../models/Delivery');
-
+const Auctions = require('../models/Auctions');
+const Payment = require('../models/Payment'); // No model called payment, idk what tf thats abuot, check if its payout 
+const Delivery = require('../models/Delivery'); // Or delivery, they might be getting exported from elsewhere 
 // Notification type configuration
 const NOTIFICATION_CONFIG = {
   // Auction Notifications
