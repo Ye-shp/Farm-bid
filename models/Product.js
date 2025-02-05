@@ -110,7 +110,7 @@ const ProductionPracticesSchema = new mongoose.Schema({
     },
     coordinates: {
       type: [Number],  // [longitude, latitude]
-      required: true
+      required: false,
     }
   },
   growingConditions: String
@@ -127,7 +127,7 @@ const ProductSchema = new mongoose.Schema({
   }, 
   totalQuantity: {
     type: Number, 
-    required: true, 
+    required: false, 
     min: 0 
   },
   title: {
