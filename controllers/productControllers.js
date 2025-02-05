@@ -165,7 +165,7 @@ exports.createProduct = [
     }
   },
 ];
-
+   
 // Updated getFarmerProducts with technical data filtering
 exports.getFarmerProducts = async (req, res) => {
   try {
