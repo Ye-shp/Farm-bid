@@ -8,8 +8,7 @@ const {
 } = require('../models/Notification');
 const { User } = require('../models/User');
 const Auctions = require('../models/Auctions');
-const Payment = require('../models/Payment'); // No model called payment, idk what tf thats abuot, check if its payout 
-const Delivery = require('../models/Delivery'); // Or delivery, they might be getting exported from elsewhere 
+
 // Notification type configuration
 const NOTIFICATION_CONFIG = {
   // Auction Notifications
@@ -64,58 +63,6 @@ const NOTIFICATION_CONFIG = {
     }
   },
 
-  // Payment Notifications
-  [NOTIFICATION_TYPES.PAYMENT_SUCCESSFUL]: {
-    channels: [DELIVERY_CHANNELS.IN_APP, DELIVERY_CHANNELS.EMAIL],
-    priority: PRIORITY_LEVELS.MEDIUM,
-    template: async (referenceId) => {
-      const payment = await Payment.findById(referenceId);
-      return {
-        title: 'Payment Successful',
-        message: `Payment of ${payment.amount} for ${payment.description} was completed`,
-        action: {
-          type: 'link',
-          text: 'View Receipt',
-          url: `/payments/${referenceId}`
-        }
-      };
-    }
-  },
-
-  [NOTIFICATION_TYPES.PAYMENT_FAILED]: {
-    channels: [DELIVERY_CHANNELS.IN_APP, DELIVERY_CHANNELS.SMS, DELIVERY_CHANNELS.EMAIL],
-    priority: PRIORITY_LEVELS.URGENT,
-    template: async (referenceId) => {
-      const payment = await Payment.findById(referenceId);
-      return {
-        title: 'Payment Failed',
-        message: `Payment of ${payment.amount} failed. Please update your payment method`,
-        action: {
-          type: 'link',
-          text: 'Retry Payment',
-          url: `/payments/${referenceId}/retry`
-        }
-      };
-    }
-  },
-
-  // Delivery Notifications
-  [NOTIFICATION_TYPES.DELIVERY_SCHEDULED]: {
-    channels: [DELIVERY_CHANNELS.IN_APP, DELIVERY_CHANNELS.SMS],
-    priority: PRIORITY_LEVELS.MEDIUM,
-    template: async (referenceId) => {
-      const delivery = await Delivery.findById(referenceId).populate('auction');
-      return {
-        title: 'Delivery Scheduled',
-        message: `Your ${delivery.auction.title} will arrive on ${delivery.estimatedDate}`,
-        action: {
-          type: 'link',
-          text: 'Track Delivery',
-          url: `/deliveries/${referenceId}`
-        }
-      };
-    }
-  },
 
   // System Notifications
   [NOTIFICATION_TYPES.SYSTEM_MAINTENANCE]: {

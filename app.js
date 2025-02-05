@@ -98,7 +98,7 @@ const contractRoute = require('./routes/contractRoute');
 const transactionRoute = require('./routes/transactionRoute');
 const searchRoute = require ('./routes/searchRoute');
 const paymentRoute = require('./routes/paymentRoute'); 
-const reviewRoute = require('./routes/reviews'); // Added reviewRoute
+const reviewRoute = require('./routes/reviews'); 
 
 //farmer and buyer routes for location-based matching
 const farmerRoute = require('./routes/farmerRoute');
