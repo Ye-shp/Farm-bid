@@ -14,7 +14,7 @@ const featuredFarmsSchema = new Schema({
 });
 
 // Automatically update 'updatedAt' before saving
-featuredFarmsSchema.pre('save', function (next) {
+featuredFarmsSchema.pre('save', function (next) {  
   this.updatedAt = Date.now();
   next();
 });
