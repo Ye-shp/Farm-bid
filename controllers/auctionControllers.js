@@ -106,7 +106,7 @@ exports.getFarmerAuctions = async (req, res) => {
     }
 
     const auctions = await Auction.find(query)
-      .select('_id product startingPrice currentPrice endTime auctionQuantity status')
+      // .select('_id product startingPrice currentPrice endTime auctionQuantity status')
       .populate({
         path: 'product',
         populate: { path: 'user' }
