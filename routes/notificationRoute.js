@@ -8,6 +8,7 @@ const {
   getNotificationPreferences,
   updateNotificationPreferences
 } = require('../controllers/notificationController');
+
 const { authMiddleware } = require('../middleware/authMiddleware');
 
 // Notification creation

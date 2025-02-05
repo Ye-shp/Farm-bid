@@ -7,10 +7,6 @@ const PRIORITY_LEVELS = {
   URGENT: 'urgent'
 };
 
-/**
- * Notification categories to group different types of notifications
- * and allow for easier filtering and handling
- */
 const NOTIFICATION_CATEGORIES = {
   AUCTION: 'auction',
   PAYMENT: 'payment',
@@ -19,9 +15,6 @@ const NOTIFICATION_CATEGORIES = {
   USER: 'user'
 };
 
-/**
- * Specific notification types within each category
- */
 const NOTIFICATION_TYPES = {
   // Auction related
   AUCTION_BID_PLACED: 'auction_bid_placed',
@@ -51,9 +44,7 @@ const NOTIFICATION_TYPES = {
   USER_VERIFICATION: 'user_verification'
 };
 
-/**
- * Delivery channels for notifications
- */
+
 const DELIVERY_CHANNELS = {
   IN_APP: 'in_app',
   EMAIL: 'email',
@@ -170,19 +161,16 @@ const NotificationSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
-
 // Indexes
 NotificationSchema.index({ createdAt: -1 });
 NotificationSchema.index({ 'status.read': 1, createdAt: -1 });
 NotificationSchema.index({ user: 1, category: 1, createdAt: -1 });
-
 // Instance methods
 NotificationSchema.methods.markAsRead = async function() {
   this.status.read = true;
   this.status.readAt = new Date();
   return this.save();
 };
-
 NotificationSchema.methods.markAsDelivered = async function(channel, success, errorMessage = null) {
   this.status.deliveredChannels.push({
     channel,
@@ -192,7 +180,6 @@ NotificationSchema.methods.markAsDelivered = async function(channel, success, er
   });
   return this.save();
 };
-
 // Static methods
 NotificationSchema.statics.findUnreadByUser = function(userId) {
   return this.find({
@@ -200,7 +187,6 @@ NotificationSchema.statics.findUnreadByUser = function(userId) {
     'status.read': false
   }).sort({ createdAt: -1 });
 };
-
 NotificationSchema.statics.markAllAsRead = async function(userId) {
   return this.updateMany(
     { user: userId, 'status.read': false },
@@ -212,7 +198,6 @@ NotificationSchema.statics.markAllAsRead = async function(userId) {
     }
   );
 };
-
 // Export constants along with the model
 module.exports = {
   NotificationModel: mongoose.model('Notification', NotificationSchema),
