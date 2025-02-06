@@ -15,6 +15,10 @@ const AuctionSchema = new mongoose.Schema({
     type: Number,
     required: true, 
   },
+  Delivery: {
+    type :  Boolean,
+    required: true, 
+  }, 
   endTime: { 
     type: Date, 
     required: true,

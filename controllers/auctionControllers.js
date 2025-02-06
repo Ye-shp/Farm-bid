@@ -144,7 +144,7 @@ exports.getAuctionDetails = async (req, res) => {
 // Create a new auction
 exports.createAuction = async (req, res) => {
   try {
-    const { productId, startingPrice, endTime, minIncrement, auctionQuantity} = req.body;
+    const { productId, startingPrice, endTime, minIncrement, auctionQuantity, delivery} = req.body;
     
     const product = await Product.findById(productId);
     if (!product) {
@@ -163,6 +163,7 @@ exports.createAuction = async (req, res) => {
       endTime,
       auctionQuantity,
       minIncrement,
+      delivery,
       status: 'active'
     });
 
