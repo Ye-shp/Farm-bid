@@ -320,7 +320,8 @@ exports.acceptBid = async (req, res) => {
       metadata: {
         auctionId: auction._id.toString(),
         productId: auction.product._id.toString(),
-        bidId: winningBid._id.toString()
+        bidId: winningBid._id.toString(),
+        deliveryMethod: auction.delivery ? 'delivery': 'pickup'
       }
     });
 
