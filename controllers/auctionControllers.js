@@ -3,7 +3,7 @@ const { Product } = require('../models/Product');
 const mongoose = require('mongoose');
 const Notification = require('../models/Notification');
 const PaymentService = require('../services/paymentService');
-const notificationService = require('./services/notificationService');
+const notificationService = require('../services/notificationService');
 
 //Error in checkAndUpdateExpiredAuctions: TypeError: Cannot read properties of null (reading '_id')
 const checkAndUpdateExpiredAuctions = async () => {
