@@ -3,7 +3,7 @@ const { Product } = require('../models/Product');
 const mongoose = require('mongoose');
 const Notification = require('../models/Notification');
 const PaymentService = require('../services/paymentService');
-const { createAndEmitNotification } = require('./notificationController');
+const notificationService = require('./services/notificationService');
 
 //Error in checkAndUpdateExpiredAuctions: TypeError: Cannot read properties of null (reading '_id')
 const checkAndUpdateExpiredAuctions = async () => {
@@ -336,7 +336,7 @@ exports.acceptBid = async (req, res) => {
     await auction.save();
 
     // Create buyer notification with payment information
-    await createAndEmitNotification({
+    await notificationService.createAndSendNotification({
       user: winningBid.user,
       message: `Congratulations! Your bid of $${winningBid.amount} was accepted for "${auction.product.title}". Click here to complete your payment.`,
       type: 'auction_won',
@@ -345,11 +345,12 @@ exports.acceptBid = async (req, res) => {
         amount: winningBid.amount,
         title: auction.product.title,
         paymentIntentClientSecret: paymentIntent.client_secret
-      }
+      },
+      io : req.app.get('io')
     });
 
     // Create seller notification
-    await createAndEmitNotification({
+    await notificationService.createAndSendNotification({
       user: auction.product.user,
       message: `A bid of $${winningBid.amount} has been accepted for your auction "${auction.product.title}".`,
       type: 'auction_ended',
@@ -357,7 +358,8 @@ exports.acceptBid = async (req, res) => {
         auctionId: auction._id,
         amount: winningBid.amount,
         title: auction.product.title
-      }
+      },
+      io : req.app.get('io')
     });
 
     res.json({ 
