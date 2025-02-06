@@ -48,6 +48,9 @@ class PaymentService {
         seller: sellerId,
         amount,
         fees,
+        delivery:{
+          method: metadata.deliveryMethod,
+        },
         status: 'pending',
         paymentIntent: {
           stripeId: paymentIntent.id,
