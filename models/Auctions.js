@@ -15,7 +15,7 @@ const AuctionSchema = new mongoose.Schema({
     type: Number,
     required: true, 
   },
-  Delivery: {
+  delivery: {
     type :  Boolean,
     required: true, 
   }, 
