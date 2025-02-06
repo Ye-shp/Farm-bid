@@ -315,8 +315,8 @@ exports.acceptBid = async (req, res) => {
       amount: winningBid.amount,
       sourceType: 'auction',
       sourceId: auction._id,
-      buyerId: winningBid.user._id,
-      sellerId: auction.product.user._id,
+      buyerId: winningBid.user._id.toString(),
+      sellerId: auction.product.user._id.toString(),
       metadata: {
         auctionId: auction._id.toString(),
         productId: auction.product._id.toString(),
