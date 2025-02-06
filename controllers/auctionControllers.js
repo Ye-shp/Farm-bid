@@ -314,7 +314,7 @@ exports.acceptBid = async (req, res) => {
     const { paymentIntent } = await PaymentService.createPaymentIntent({
       amount: winningBid.amount,
       sourceType: 'auction',
-      sourceId: auction._id,
+      sourceId: auction._id.toString(),
       buyerId: winningBid.user._id.toString(),
       sellerId: auction.product.user._id.toString(),
       metadata: {
