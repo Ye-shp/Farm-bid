@@ -180,7 +180,7 @@ exports.submitBid = async (req, res) => {
   try {
     const { auctionId } = req.params;
     const { bidAmount } = req.body;
-    const userId = req.user._id;
+    const userId = new mongoose.Types.ObjectId(req.user.id);
 
     // Validate auctionId is a valid ObjectId
     if (!mongoose.Types.ObjectId.isValid(auctionId)) {
