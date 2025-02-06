@@ -27,7 +27,7 @@ const checkAndUpdateExpiredAuctions = async () => {
         auction.paymentIntentId = paymentIntent.id;
 
         // Notify the winner
-        await createAndEmitNotification({
+        await notificationService.createAndSendNotification({
           user: winningBid.user,
           message: `Congratulations! You won the auction for "${auction.product.title}" with a bid of $${winningBid.amount}. Please complete your payment.`,
           type: 'auction_won',
@@ -38,7 +38,7 @@ const checkAndUpdateExpiredAuctions = async () => {
         });
 
         // Notify the farmer
-        await createAndEmitNotification({
+        await notificationService.createAndSendNotification({
           user: auction.product.user,
           message: `Your auction for "${auction.product.title}" has ended with a winning bid of $${winningBid.amount}.`,
           type: 'auction_ended',
@@ -48,7 +48,7 @@ const checkAndUpdateExpiredAuctions = async () => {
         });
       } else {
         // Notify the farmer that no bids were placed
-        await createAndEmitNotification({
+        await notificationService.createAndSendNotification({
           user: auction.product.user,
           message: `Your auction for "${auction.product.title}" has ended with no bids.`,
           type: 'auction_ended_no_bids'
@@ -436,13 +436,13 @@ exports.handlePaymentWebhook = async (req, res) => {
         // Create notifications for both buyer and seller
         const winningBid = auction.bids[auction.bids.length - 1];
         
-        await createAndEmitNotification({
+        await notificationService.createAndSendNotification({
           user: winningBid.user,
           message: `Payment successful for auction "${auction.title}". The seller will be notified to fulfill your order.`,
           type: 'payment_success'
         });
 
-        await createAndEmitNotification({
+        await notificationService.createAndSendNotification({
           user: auction.product.user,
           message: `Payment received for auction "${auction.title}". Please proceed with order fulfillment.`,
           type: 'payment_received'
