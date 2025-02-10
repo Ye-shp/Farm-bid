@@ -1,7 +1,8 @@
 const Auction = require('../models/Auctions');
 const { Product } = require('../models/Product');
 const mongoose = require('mongoose');
-const Notification = require('../models/Notification');
+const {NotificationModel} = require('../models/Notification');
+const {NOTIFICATION_TYPES} = require('../models/Notification');
 const PaymentService = require('../services/paymentService');
 const notificationService = require('../services/notificationService');
 
@@ -30,7 +31,7 @@ const checkAndUpdateExpiredAuctions = async () => {
         await notificationService.createAndSendNotification({
           user: winningBid.user,
           message: `Congratulations! You won the auction for "${auction.product.title}" with a bid of $${winningBid.amount}. Please complete your payment.`,
-          type: 'auction_won',
+          type: NOTIFICATION_TYPES.AUCTION_WON,
           metadata: {
             auctionId: auction._id,
             paymentIntentClientSecret: paymentIntent.client_secret
@@ -41,7 +42,7 @@ const checkAndUpdateExpiredAuctions = async () => {
         await notificationService.createAndSendNotification({
           user: auction.product.user,
           message: `Your auction for "${auction.product.title}" has ended with a winning bid of $${winningBid.amount}.`,
-          type: 'auction_ended',
+          type: NOTIFICATION_TYPES.AUCTION_ENDED,
           metadata: {
             auctionId: auction._id
           }
@@ -51,7 +52,7 @@ const checkAndUpdateExpiredAuctions = async () => {
         await notificationService.createAndSendNotification({
           user: auction.product.user,
           message: `Your auction for "${auction.product.title}" has ended with no bids.`,
-          type: 'auction_ended_no_bids'
+          type: NOTIFICATION_TYPES.AUCTION_ENDED_NO_BIDS,
         });
       }
 
@@ -220,7 +221,7 @@ exports.submitBid = async (req, res) => {
     // Create notification for previous highest bidder
     if (auction.bids.length > 1) {
       const previousBidder = auction.bids[auction.bids.length - 2].user;
-      await Notification.create({
+      await NotificationModel.create({
         user: previousBidder,
         message: `Your bid on "${auction.product.title}" has been outbid. New highest bid: $${bidAmount}`,
         type: 'bid',
@@ -339,7 +340,7 @@ exports.acceptBid = async (req, res) => {
     await notificationService.createAndSendNotification({
       user: winningBid.user,
       message: `Congratulations! Your bid of $${winningBid.amount} was accepted for "${auction.product.title}". Click here to complete your payment.`,
-      type: 'auction_won',
+      type: NOTIFICATION_TYPES.AUCTION_WON,
       metadata: {
         auctionId: auction._id,
         amount: winningBid.amount,
@@ -353,7 +354,7 @@ exports.acceptBid = async (req, res) => {
     await notificationService.createAndSendNotification({
       user: auction.product.user,
       message: `A bid of $${winningBid.amount} has been accepted for your auction "${auction.product.title}".`,
-      type: 'auction_ended',
+      type: NOTIFICATION_TYPES.AUCTION_ENDED,
       metadata: {
         auctionId: auction._id,
         amount: winningBid.amount,
