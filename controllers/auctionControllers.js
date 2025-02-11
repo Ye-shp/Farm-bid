@@ -239,7 +239,7 @@ exports.submitBid = async (req, res) => {
 
       //if notiication was created, the notification is sent using webhook to the frontend
       const io = req.app.get("io");
-      io.to(`user_${userId}`).emit('handleNewNotification', notification);
+      io.to(`user_${previousBidder}`).emit('notificationUpdate', notification);
     }
 
     res.json(auction);
