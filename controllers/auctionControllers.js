@@ -220,7 +220,9 @@ exports.submitBid = async (req, res) => {
     // Create notification for previous highest bidder
     if (auction.bids.length > 1) {
       const previousBidder = auction.bids[auction.bids.length - 2].user;
-      await NotificationModel.create({
+
+      //creates a notification in mongodb. On success, the created object is returned 
+      const notification = await NotificationModel.create({
         user: previousBidder,
         title: "new bidder",
         message: `Your bid on "${auction.product.title}" has been outbid. New highest bid: $${bidAmount}`,
@@ -229,6 +231,15 @@ exports.submitBid = async (req, res) => {
         type: 'auction_bid_outbid',
         metadata: { auctionId: auction._id }
       });
+
+      //if notification is undefined, a not created error is thrown
+      if(!notification){
+        throw new Error("could not create notification in database")
+      }
+
+      //if notiication was created, the notification is sent using webhook to the frontend
+      const io = req.app.get("io");
+      io.to(`user_${userId}`).emit('notificationUpdate', notification);
     }
 
     res.json(auction);
