@@ -179,7 +179,7 @@ exports.fulfillOpenContract = async (req, res) => {
 
     // Check if farmer has already made an offer
     const existingFulfillment = contract.fulfillments.find(
-      f => f.farmer.toString() === farmerId
+      f => f.farmer.toString() === farmerId 
     );
     if (existingFulfillment) {
       return res.status(400).json({ error: 'You have already made an offer on this contract' });
