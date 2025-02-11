@@ -1,7 +1,7 @@
 // controllers/openContractControllers.js
 const OpenContract = require('../models/OpenContract');
 const User = require('../models/User');
-const Notification = require('../models/Notification');
+const {NotificationModel} = require('../models/Notification');
 const twilio = require('twilio');
 
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
