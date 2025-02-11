@@ -13,7 +13,7 @@ const client = twilio(accountSid, authToken);
 // Helper function to create notifications
 async function createNotification(userId, message, type) {
   try {
-    const notification = new Notification({
+    const notification = new NotificationModel({
       user: userId,
       message,
       type,
