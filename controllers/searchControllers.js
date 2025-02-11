@@ -48,13 +48,15 @@ exports.searchFarms = async (req, res) => {
       if (!searchAnywhere && userLatitude !== null && userLongitude !== null) {
         // If farmer has location, check distance
         if (
-          farmer.location &&
-          farmer.location.latitude !== undefined &&
-          farmer.location.longitude !== undefined
+          farmer.address &&
+          farmer.address.coordinates && 
+          farmer.address.coordinates.lat!== undefined &&
+          farmer.address.coordinates.lng!== undefined
         ) {
-          const farmerLatitude = parseFloat(farmer.location.latitude);
-          const farmerLongitude = parseFloat(farmer.location.longitude);
+          const farmerLatitude = parseFloat(farmer.address.coordinates.lat);
+          const farmerLongitude = parseFloat(farmer.address.coordinates.lng);  
 
+          const searchRadiusInKm = parseFloat(searchRadius) * 1.60934;
           const distance = calculateDistance(
             userLatitude,
             userLongitude,
@@ -62,7 +64,7 @@ exports.searchFarms = async (req, res) => {
             farmerLongitude
           );
           
-          if (distance > searchRadius) {
+          if (distance > searchRadiusInKm) {
             console.log('Farmer outside radius:', farmer._id, 'distance:', distance);
             return false;
           }
