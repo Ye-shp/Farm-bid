@@ -7,7 +7,7 @@ const {
   DELIVERY_CHANNELS
 } = require('../models/Notification');
 const { User } = require('../models/User');
-const Auctions = require('../models/Auctions');
+const Auction = require('../models/Auctions');
 
 // Notification type configuration
 const NOTIFICATION_CONFIG = {
