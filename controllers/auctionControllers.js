@@ -2,7 +2,6 @@ const Auction = require('../models/Auctions');
 const { Product } = require('../models/Product');
 const mongoose = require('mongoose');
 const {NotificationModel} = require('../models/Notification');
-const {NOTIFICATION_TYPES} = require('../models/Notification');
 const PaymentService = require('../services/paymentService');
 const notificationService = require('../services/notificationService');
 
@@ -31,7 +30,7 @@ const checkAndUpdateExpiredAuctions = async () => {
         await notificationService.createAndSendNotification({
           user: winningBid.user,
           message: `Congratulations! You won the auction for "${auction.product.title}" with a bid of $${winningBid.amount}. Please complete your payment.`,
-          type: NOTIFICATION_TYPES.AUCTION_WON,
+          type: 'auction_won',
           metadata: {
             auctionId: auction._id,
             paymentIntentClientSecret: paymentIntent.client_secret
@@ -42,7 +41,7 @@ const checkAndUpdateExpiredAuctions = async () => {
         await notificationService.createAndSendNotification({
           user: auction.product.user,
           message: `Your auction for "${auction.product.title}" has ended with a winning bid of $${winningBid.amount}.`,
-          type: NOTIFICATION_TYPES.AUCTION_ENDED,
+          type: 'auction_ended',
           metadata: {
             auctionId: auction._id
           }
@@ -52,7 +51,7 @@ const checkAndUpdateExpiredAuctions = async () => {
         await notificationService.createAndSendNotification({
           user: auction.product.user,
           message: `Your auction for "${auction.product.title}" has ended with no bids.`,
-          type: NOTIFICATION_TYPES.AUCTION_ENDED_NO_BIDS,
+          type: 'auction_ended_no_bids'
         });
       }
 
@@ -221,12 +220,26 @@ exports.submitBid = async (req, res) => {
     // Create notification for previous highest bidder
     if (auction.bids.length > 1) {
       const previousBidder = auction.bids[auction.bids.length - 2].user;
-      await NotificationModel.create({
+
+      //creates a notification in mongodb. On success, the created object is returned 
+      const notification = await NotificationModel.create({
         user: previousBidder,
+        title: "new bidder",
         message: `Your bid on "${auction.product.title}" has been outbid. New highest bid: $${bidAmount}`,
-        type: 'bid',
+        category: "auction",
+        priority: "high",
+        type: 'auction_bid_outbid',
         metadata: { auctionId: auction._id }
       });
+
+      //if notification is undefined, a not created error is thrown
+      if(!notification){
+        throw new Error("could not create notification in database")
+      }
+
+      //if notiication was created, the notification is sent using webhook to the frontend
+      const io = req.app.get("io");
+      io.to(`user_${previousBidder}`).emit('notificationUpdate', notification);
     }
 
     res.json(auction);
@@ -340,7 +353,7 @@ exports.acceptBid = async (req, res) => {
     await notificationService.createAndSendNotification({
       user: winningBid.user,
       message: `Congratulations! Your bid of $${winningBid.amount} was accepted for "${auction.product.title}". Click here to complete your payment.`,
-      type: NOTIFICATION_TYPES.AUCTION_WON,
+      type: 'auction_won',
       metadata: {
         auctionId: auction._id,
         amount: winningBid.amount,
@@ -354,7 +367,7 @@ exports.acceptBid = async (req, res) => {
     await notificationService.createAndSendNotification({
       user: auction.product.user,
       message: `A bid of $${winningBid.amount} has been accepted for your auction "${auction.product.title}".`,
-      type: NOTIFICATION_TYPES.AUCTION_ENDED,
+      type: 'auction_ended',
       metadata: {
         auctionId: auction._id,
         amount: winningBid.amount,
