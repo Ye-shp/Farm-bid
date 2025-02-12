@@ -221,6 +221,7 @@ exports.submitBid = async (req, res) => {
     if (auction.bids.length > 1) {
       const previousBidder = auction.bids[auction.bids.length - 2].user;
 
+      // Cross check with contract controler //
       //creates a notification in mongodb. On success, the created object is returned 
       const notification = await NotificationModel.create({
         user: previousBidder,
@@ -272,7 +273,12 @@ exports.acceptBid = async (req, res) => {
   try {
     const { auctionId } = req.params;
     const { bidId } = req.body;
-    console.log('Accepting bid:', { auctionId, bidId });
+    const io = req.app.get("io");
+
+    // Validate auctionId format
+    if (!mongoose.Types.ObjectId.isValid(auctionId)) {
+      return res.status(400).json({ message: 'Invalid auction ID format' });
+    }
 
     const auction = await Auction.findById(auctionId)
       .populate({
@@ -282,49 +288,20 @@ exports.acceptBid = async (req, res) => {
       .populate('bids.user');
 
     if (!auction) {
-      console.log('Auction not found:', auctionId);
       return res.status(404).json({ message: 'Auction not found' });
     }
 
-    // Log auction data for debugging
-    console.log('Found auction:', {
-      id: auction._id,
-      productId: auction.product._id,
-      bidsCount: auction.bids.length,
-      bids: auction.bids.map(bid => ({
-        id: bid._id,
-        amount: bid.amount,
-        userId: bid.user._id
-      }))
-    });
-
-    // Verify the user is the owner of the product
-    console.log('Checking authorization:', {
-      productOwner: auction.product.user._id,
-      requestUser: req.user.id
-    });
-
+    // Authorization check
     if (auction.product.user._id.toString() !== req.user.id) {
-      console.log('Unauthorized bid acceptance:', {
-        productOwner: auction.product.user,
-        requestUser: req.user.id
-      });
-      return res.status(403).json({ message: 'Not authorized to accept bids for this auction' });
+      return res.status(403).json({ message: 'Not authorized to accept bids' });
     }
 
     const winningBid = auction.bids.find(bid => bid._id.equals(bidId));
     if (!winningBid) {
-      console.log('Bid not found:', { auctionId, bidId });
       return res.status(404).json({ message: 'Bid not found' });
     }
 
-    console.log('Found winning bid:', {
-      bidId: winningBid._id,
-      userId: winningBid.user._id,
-      amount: winningBid.amount
-    });
-
-    // Create payment intent for the winning bid
+    // Create payment intent
     const { paymentIntent } = await PaymentService.createPaymentIntent({
       amount: winningBid.amount,
       sourceType: 'auction',
@@ -335,10 +312,11 @@ exports.acceptBid = async (req, res) => {
         auctionId: auction._id.toString(),
         productId: auction.product._id.toString(),
         bidId: winningBid._id.toString(),
-        deliveryMethod: auction.delivery ? 'delivery': 'pickup'
+        deliveryMethod: auction.delivery ? 'delivery' : 'pickup'
       }
     });
 
+    // Update auction status
     auction.paymentIntentId = paymentIntent.id;
     auction.status = 'ended';
     auction.winningBid = {
@@ -349,32 +327,48 @@ exports.acceptBid = async (req, res) => {
     auction.acceptedAt = new Date();
     await auction.save();
 
-    // Create buyer notification with payment information
-    await notificationService.createAndSendNotification({
-      user: winningBid.user,
+    // Create buyer notification (winner)
+    const buyerNotification = await NotificationModel.create({
+      user: winningBid.user._id,
+      title: "Bid Accepted",
       message: `Congratulations! Your bid of $${winningBid.amount} was accepted for "${auction.product.title}". Click here to complete your payment.`,
-      type: 'auction_won',
+      category: NOTIFICATION_CATEGORIES.AUCTION,
+      priority: PRIORITY_LEVELS.HIGH,
+      type: NOTIFICATION_TYPES.AUCTION_WON,
       metadata: {
         auctionId: auction._id,
         amount: winningBid.amount,
         title: auction.product.title,
         paymentIntentClientSecret: paymentIntent.client_secret
-      },
-      io : req.app.get('io')
+      }
     });
 
-    // Create seller notification
-    await notificationService.createAndSendNotification({
-      user: auction.product.user,
+    if (!buyerNotification) {
+      throw new Error("Could not create buyer notification");
+    }
+
+    // Create seller notification (auction owner)
+    const sellerNotification = await NotificationModel.create({
+      user: auction.product.user._id,
+      title: "Auction Completed",
       message: `A bid of $${winningBid.amount} has been accepted for your auction "${auction.product.title}".`,
-      type: 'auction_ended',
+      category: NOTIFICATION_CATEGORIES.AUCTION,
+      priority: PRIORITY_LEVELS.MEDIUM,
+      type: NOTIFICATION_TYPES.AUCTION_ENDED,
       metadata: {
         auctionId: auction._id,
         amount: winningBid.amount,
         title: auction.product.title
-      },
-      io : req.app.get('io')
+      }
     });
+
+    if (!sellerNotification) {
+      throw new Error("Could not create seller notification");
+    }
+
+    // Real-time updates for both parties
+    io.to(`user_${winningBid.user._id}`).emit('notificationUpdate', buyerNotification);
+    io.to(`user_${auction.product.user._id}`).emit('notificationUpdate', sellerNotification);
 
     res.json({ 
       message: 'Bid accepted successfully', 
