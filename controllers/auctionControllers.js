@@ -3,6 +3,12 @@ const { Product } = require('../models/Product');
 const mongoose = require('mongoose');
 const {NotificationModel} = require('../models/Notification');
 const PaymentService = require('../services/paymentService');
+const {
+  NOTIFICATION_TYPES,
+  NOTIFICATION_CATEGORIES,
+  PRIORITY_LEVELS,
+  DELIVERY_CHANNELS
+} = require ('../models/Notification');
 const notificationService = require('../services/notificationService');
 
 //Error in checkAndUpdateExpiredAuctions: TypeError: Cannot read properties of null (reading '_id')
@@ -334,7 +340,7 @@ exports.acceptBid = async (req, res) => {
       message: `Congratulations! Your bid of $${winningBid.amount} was accepted for "${auction.product.title}". Click here to complete your payment.`,
       category: NOTIFICATION_CATEGORIES.AUCTION,
       priority: PRIORITY_LEVELS.HIGH,
-      type: 'bid',
+      type: AUCTION_NOTIFICATION_TYPES.BID_ACCEPTED,  
       metadata: {
         auctionId: auction._id,
         amount: winningBid.amount,
@@ -354,7 +360,7 @@ exports.acceptBid = async (req, res) => {
       message: `A bid of $${winningBid.amount} has been accepted for your auction "${auction.product.title}".`,
       category: NOTIFICATION_CATEGORIES.AUCTION,
       priority: PRIORITY_LEVELS.MEDIUM,
-      type: 'bid',
+      type: AUCTION_NOTIFICATION_TYPES.AUCTION_COMPLETED, 
       metadata: {
         auctionId: auction._id,
         amount: winningBid.amount,
