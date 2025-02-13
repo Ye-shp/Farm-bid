@@ -340,7 +340,7 @@ exports.acceptBid = async (req, res) => {
     await notificationService.createAndSendNotification({
       user: winningBid.user,
       message: `Congratulations! Your bid of $${winningBid.amount} was accepted for "${auction.product.title}". Click here to complete your payment.`,
-      type: NOTIFICATION_TYPES.AUCTION_WON,
+      type: 'bid',
       metadata: {
         auctionId: auction._id,
         amount: winningBid.amount,
@@ -354,7 +354,7 @@ exports.acceptBid = async (req, res) => {
     await notificationService.createAndSendNotification({
       user: auction.product.user,
       message: `A bid of $${winningBid.amount} has been accepted for your auction "${auction.product.title}".`,
-      type: NOTIFICATION_TYPES.AUCTION_ENDED,
+      type: 'bid',
       metadata: {
         auctionId: auction._id,
         amount: winningBid.amount,
