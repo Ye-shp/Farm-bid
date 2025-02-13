@@ -395,21 +395,68 @@ exports.acceptBid = async (req, res) => {
 exports.createPaymentIntent = async (req, res) => {
   try {
     const { auctionId } = req.params;
-    const { amount } = req.body;
 
-    const auction = await Auction.findById(auctionId).populate('bids.user');
+    // Validate auctionId format (optional, but recommended)
+    if (!mongoose.Types.ObjectId.isValid(auctionId)) {
+      return res.status(400).json({ message: 'Invalid auction ID format' });
+    }
+
+    // Populate auction with product (and its owner) and all bids with their users
+    const auction = await Auction.findById(auctionId)
+      .populate({
+        path: 'product',
+        populate: { path: 'user' }
+      })
+      .populate('bids.user');
+
     if (!auction) {
       return res.status(404).json({ message: 'Auction not found' });
     }
 
+    // Ensure the auction already has an accepted bid (winningBid)
+    if (!auction.winningBid) {
+      return res.status(400).json({ message: 'Auction does not have an accepted bid yet' });
+    }
+
     // Verify that the requesting user is the winner
-    const winningBid = auction.bids[auction.bids.length - 1];
-    if (winningBid.user.toString() !== req.user._id.toString()) {
+    if (auction.winningBid.user.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'Only the auction winner can make payment' });
     }
 
-    // Use PaymentService to handle payment intent creation
-    const { paymentIntent } = await PaymentService.handlePaymentIntentCreation(auction, amount);
+    // Determine the winning bid ID for metadata.
+    // If the accepted bid already stored its bidId, use it.
+    // Otherwise, find the matching bid from the auction.bids array.
+    let bidId;
+    if (auction.winningBid.bidId) {
+      bidId = auction.winningBid.bidId.toString();
+    } else {
+      const matchingBid = auction.bids.find(bid => 
+        bid.user._id.toString() === auction.winningBid.user.toString() &&
+        bid.amount === auction.winningBid.amount
+      );
+      if (matchingBid) {
+        bidId = matchingBid._id.toString();
+      } else {
+        return res.status(400).json({ message: 'Winning bid details could not be found' });
+      }
+    }
+
+    // Create the payment intent using the same structure as in acceptBid
+    const { paymentIntent } = await PaymentService.createPaymentIntent({
+      amount: auction.winningBid.amount,
+      sourceType: 'auction',
+      sourceId: auction._id.toString(),
+      buyerId: auction.winningBid.user.toString(),
+      sellerId: auction.product.user._id.toString(),
+      metadata: {
+        auctionId: auction._id.toString(),
+        productId: auction.product._id.toString(),
+        bidId: bidId,
+        deliveryMethod: auction.delivery ? 'delivery' : 'pickup'
+      }
+    });
+
+    // Update the auction with the newly created payment intent ID
     auction.paymentIntentId = paymentIntent.id;
     await auction.save();
 
