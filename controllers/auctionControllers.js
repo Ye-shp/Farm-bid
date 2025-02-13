@@ -334,7 +334,7 @@ exports.acceptBid = async (req, res) => {
       message: `Congratulations! Your bid of $${winningBid.amount} was accepted for "${auction.product.title}". Click here to complete your payment.`,
       category: NOTIFICATION_CATEGORIES.AUCTION,
       priority: PRIORITY_LEVELS.HIGH,
-      type: NOTIFICATION_TYPES.AUCTION_WON,
+      type: 'bid',
       metadata: {
         auctionId: auction._id,
         amount: winningBid.amount,
@@ -354,7 +354,7 @@ exports.acceptBid = async (req, res) => {
       message: `A bid of $${winningBid.amount} has been accepted for your auction "${auction.product.title}".`,
       category: NOTIFICATION_CATEGORIES.AUCTION,
       priority: PRIORITY_LEVELS.MEDIUM,
-      type: NOTIFICATION_TYPES.AUCTION_ENDED,
+      type: 'bid',
       metadata: {
         auctionId: auction._id,
         amount: winningBid.amount,
