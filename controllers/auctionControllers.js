@@ -275,6 +275,7 @@ exports.endAuction = async (req, res) => {
 };
 
 // Accept a bid
+// Notification works properly 
 exports.acceptBid = async (req, res) => {
   try {
     const { auctionId } = req.params;
@@ -396,7 +397,7 @@ exports.createPaymentIntent = async (req, res) => {
     const { auctionId } = req.params;
     const { amount } = req.body;
 
-    const auction = await Auction.findById(auctionId);
+    const auction = await Auction.findById(auctionId).populate('bids.user');
     if (!auction) {
       return res.status(404).json({ message: 'Auction not found' });
     }
