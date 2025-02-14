@@ -34,7 +34,5 @@ router.post('/:auctionId/accept', authMiddleware, acceptBid);
 // Create payment intent for auction
 router.post('/:auctionId/payment-intent', authMiddleware, createPaymentIntent);
 
-// Handle Stripe webhook
-router.post('/webhook', express.raw({type: 'application/json'}), handlePaymentWebhook);
 
 module.exports = router;

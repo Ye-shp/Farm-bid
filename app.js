@@ -75,11 +75,11 @@ app.use(cors({
 }));
 
 // Special handling for Stripe webhook route
-app.use('/api/auctions/webhook', express.raw({ type: 'application/json' }));
+app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 
 // For all other routes, parse JSON
 app.use((req, res, next) => {
-  if (req.originalUrl === '/api/auctions/webhook') {
+  if (req.originalUrl === '/api/payments/webhook') {
     next();
   } else {
     express.json()(req, res, next);
