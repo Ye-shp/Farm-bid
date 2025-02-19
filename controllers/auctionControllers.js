@@ -394,18 +394,59 @@ exports.acceptBid = async (req, res) => {
 // Create payment intent for auction
 exports.createPaymentIntent = async (req, res) => {
   try {
-    const auction = await Auction.findById(req.params.auctionId)
-      .populate('product');
+    const { auctionId } = req.params;
+
+    // Validate auctionId format
+    if (!mongoose.Types.ObjectId.isValid(auctionId)) {
+      return res.status(400).json({ message: 'Invalid auction ID format' });
+    }
+
+    // Retrieve the auction with its associated product and bids
+    const auction = await Auction.findById(auctionId)
+      .populate({
+        path: 'product',
+        populate: { path: 'user' }
+      })
+      .populate('bids.user');
 
     if (!auction) {
-      return res.status(404).json({ error: 'Auction not found' });
+      return res.status(404).json({ message: 'Auction not found' });
     }
 
-    const paymentData = await PaymentService.handleAuctionEnd(auction);
-
-    if (!paymentData) {
-      return res.status(400).json({ error: 'No winning bid found' });
+    // Ensure the auction has an accepted bid
+    if (!auction.winningBid) {
+      return res.status(400).json({ message: 'Auction does not have an accepted bid yet' });
     }
+
+    // Verify that the requesting user is the winner
+    if (auction.winningBid.user.toString() !== req.user.id.toString()) {
+      return res.status(403).json({ message: 'Only the auction winner can make payment' });
+    }
+
+    // Find the matching bid details
+    const matchingBid = auction.bids.find(bid => 
+      bid.user._id.toString() === auction.winningBid.user.toString() &&
+      bid.amount === auction.winningBid.amount
+    );
+
+    if (!matchingBid) {
+      return res.status(400).json({ message: 'Winning bid details could not be found' });
+    }
+
+    // Create payment intent
+    const paymentData = await PaymentService.createPaymentIntent({
+      amount: auction.winningBid.amount,
+      sourceType: 'auction',
+      sourceId: auction._id.toString(),
+      buyerId: auction.winningBid.user.toString(),
+      sellerId: auction.product.user._id.toString(),
+      metadata: {
+        auctionId: auction._id.toString(),
+        productId: auction.product._id.toString(),
+        bidId: matchingBid._id.toString(),
+        deliveryMethod: auction.delivery ? 'delivery' : 'pickup'
+      }
+    });
 
     // Update auction with payment intent ID
     if (paymentData.id) {
@@ -418,7 +459,7 @@ exports.createPaymentIntent = async (req, res) => {
       client_secret: paymentData.client_secret,
       status: paymentData.status,
       id: paymentData.id,
-      amount: paymentData.amount,
+      amount: auction.winningBid.amount,
       fees: paymentData.fees
     });
 

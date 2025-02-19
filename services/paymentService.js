@@ -64,11 +64,13 @@ class PaymentService {
         metadata: new Map(Object.entries(metadata))
       });
 
-      // Return only what the frontend needs
+      // Return all necessary data
       return {
         client_secret: paymentIntent.client_secret,
         status: paymentIntent.status,
-        id: paymentIntent.id
+        id: paymentIntent.id,
+        fees,
+        transaction: transaction // Include transaction for reference if needed
       };
     } catch (error) {
       console.error('Error creating payment intent:', error);
