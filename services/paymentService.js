@@ -87,7 +87,7 @@ class PaymentService {
     const winningBid = auction.bids[auction.bids.length - 1];
     
     try {
-      return await this.createPaymentIntent({
+      const paymentData = await this.createPaymentIntent({
         amount: winningBid.amount,
         sourceType: 'auction',
         sourceId: auction._id,
@@ -95,9 +95,19 @@ class PaymentService {
         sellerId: auction.product.user,
         metadata: {
           productId: auction.product._id.toString(),
-          productTitle: auction.product.title
+          productTitle: auction.product.title,
+          bidId: winningBid._id.toString()
         }
       });
+
+      // Ensure we return all necessary fields
+      return {
+        client_secret: paymentData.client_secret,
+        status: paymentData.status,
+        id: paymentData.id,
+        amount: winningBid.amount,
+        fees: paymentData.fees
+      };
     } catch (error) {
       console.error('Error handling auction end payment:', error);
       throw error;

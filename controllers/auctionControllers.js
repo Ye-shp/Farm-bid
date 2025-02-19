@@ -394,73 +394,39 @@ exports.acceptBid = async (req, res) => {
 // Create payment intent for auction
 exports.createPaymentIntent = async (req, res) => {
   try {
-    const { auctionId } = req.params;
-
-    // Validate auctionId format
-    if (!mongoose.Types.ObjectId.isValid(auctionId)) {
-      return res.status(400).json({ message: 'Invalid auction ID format' });
-    }
-
-    // Retrieve the auction with its associated product and bids (bids are stored in the auction)
-    const auction = await Auction.findById(auctionId)
-      .populate({
-        path: 'product',
-        populate: { path: 'user' }
-      })
-      .populate('bids.user');
+    const auction = await Auction.findById(req.params.auctionId)
+      .populate('product');
 
     if (!auction) {
-      return res.status(404).json({ message: 'Auction not found' });
+      return res.status(404).json({ error: 'Auction not found' });
     }
 
-    // Ensure the auction already has an accepted bid (winningBid)
-    if (!auction.winningBid) {
-      return res.status(400).json({ message: 'Auction does not have an accepted bid yet' });
+    const paymentData = await PaymentService.handleAuctionEnd(auction);
+
+    if (!paymentData) {
+      return res.status(400).json({ error: 'No winning bid found' });
     }
 
-    // Verify that the requesting user is the winner
-    if (auction.winningBid.user.toString() !== req.user.id.toString()) {
-      return res.status(403).json({ message: 'Only the auction winner can make payment' });
+    // Update auction with payment intent ID
+    if (paymentData.id) {
+      auction.paymentIntentId = paymentData.id;
+      await auction.save();
     }
 
-    // Find the matching bid from the auction's bids array
-    const matchingBid = auction.bids.find(bid => 
-      bid.user._id.toString() === auction.winningBid.user.toString() &&
-      bid.amount === auction.winningBid.amount
-    );
-
-    if (!matchingBid) {
-      return res.status(400).json({ message: 'Winning bid details could not be found' });
-    }
-
-    // Create the payment intent using PaymentService
-    const { paymentIntent } = await PaymentService.createPaymentIntent({
-      amount: auction.winningBid.amount,
-      sourceType: 'auction',
-      sourceId: auction._id.toString(),
-      buyerId: auction.winningBid.user.toString(),
-      sellerId: auction.product.user._id.toString(),
-      metadata: {
-        auctionId: auction._id.toString(),
-        productId: auction.product._id.toString(),
-        bidId: matchingBid._id.toString(),
-        deliveryMethod: auction.delivery ? 'delivery' : 'pickup'
-      }
+    // Return complete payment intent data
+    res.json({ 
+      client_secret: paymentData.client_secret,
+      status: paymentData.status,
+      id: paymentData.id,
+      amount: paymentData.amount,
+      fees: paymentData.fees
     });
 
-    // Update the auction with the newly created payment intent ID
-    auction.paymentIntentId = paymentIntent.id;
-    await auction.save();
-
-    res.json({
-      clientSecret: paymentIntent.client_secret
-    });
   } catch (error) {
     console.error('Error creating payment intent:', error);
-    res.status(500).json({ message: 'Error creating payment intent' });
+    res.status(500).json({ error: error.message });
   }
 };
-
 
 // Handle successful payment webhook
 exports.handlePaymentWebhook = async (req, res) => {
