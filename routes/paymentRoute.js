@@ -9,7 +9,7 @@ router.post('/create-intent', authMiddleware, async (req, res) => {
   try {
     const { amount, sourceType, sourceId, sellerId } = req.body;
     
-    const { clientSecret, transaction } = await PaymentService.createPaymentIntent({
+    const paymentData = await PaymentService.createPaymentIntent({
       amount,
       sourceType,
       sourceId,
@@ -20,11 +20,14 @@ router.post('/create-intent', authMiddleware, async (req, res) => {
       }
     });
 
+    // Return complete payment intent data
     res.json({ 
-      clientSecret,
-      transactionId: transaction._id,
-      amount: transaction.amount,
-      fees: transaction.fees
+      client_secret: paymentData.client_secret,
+      status: paymentData.status,
+      id: paymentData.id,
+      transactionId: paymentData.transaction?._id,
+      amount: amount,
+      fees: paymentData.fees
     });
   } catch (error) {
     console.error('Error creating payment intent:', error);
