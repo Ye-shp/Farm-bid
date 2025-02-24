@@ -46,7 +46,7 @@ const handleWebhook = asyncHandler(async (req, res) => {
         const paymentIntent = event.data.object;
   
         // Find the auction associated with this payment
-        const auction = await Auction.findOne({ paymentIntentId: paymentIntent.id });
+        const auction = await Auctions.findOne({ paymentIntentId: paymentIntent.id });
         if (auction) {
           auction.status = 'paid'; // Mark auction as paid
           await auction.save();
@@ -64,7 +64,7 @@ const handleWebhook = asyncHandler(async (req, res) => {
     }
   
     res.json({ received: true });
-  });
+});
   
 
 // Retrieve payment details
@@ -165,7 +165,7 @@ const createPayoutForAuction = asyncHandler(async (req, res) => {
     const { auctionId } = req.body;
 
     try {
-        const auction = await Auction.findById(auctionId).populate('product');
+        const auction = await Auctions.findById(auctionId).populate('product');
 
         if (!auction || auction.status !== 'paid') {
             return res.status(400).json({ message: 'Auction not found or not eligible for payout' });
@@ -200,7 +200,17 @@ const createPayoutForAuction = asyncHandler(async (req, res) => {
     }
 });
 
+// --- New functions for seller balance and transfers ---
 
+const getSellerBalance = asyncHandler(async (req, res) => {
+    // Dummy implementation – replace with actual logic to retrieve the seller's balance
+    res.status(200).json({ available: 1000 });
+});
+
+const getSellerTransfers = asyncHandler(async (req, res) => {
+    // Dummy implementation – replace with actual logic to retrieve the seller's payout history
+    res.status(200).json([]);
+});
 
 module.exports = {
     addBankAccount,
@@ -210,4 +220,6 @@ module.exports = {
     handleWebhook,
     getPaymentDetails,
     createPayoutForAuction,
+    getSellerBalance,
+    getSellerTransfers
 };
