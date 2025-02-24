@@ -1,71 +1,73 @@
-const Auction = require('../models/Auctions');
-const { Product } = require('../models/Product');
-const mongoose = require('mongoose');
-const {NotificationModel} = require('../models/Notification');
-const PaymentService = require('../services/paymentService');
+const Auction = require("../models/Auctions");
+const { Product } = require("../models/Product");
+const mongoose = require("mongoose");
+const { NotificationModel } = require("../models/Notification");
+const PaymentService = require("../services/paymentService");
 const {
   NOTIFICATION_TYPES,
   NOTIFICATION_CATEGORIES,
   PRIORITY_LEVELS,
-  DELIVERY_CHANNELS
-} = require ('../models/Notification');
-const notificationService = require('../services/notificationService');
+  DELIVERY_CHANNELS,
+} = require("../models/Notification");
+const notificationService = require("../services/notificationService");
 
 //Error in checkAndUpdateExpiredAuctions: TypeError: Cannot read properties of null (reading '_id')
 const checkAndUpdateExpiredAuctions = async () => {
   const currentTime = new Date();
-  
+
   try {
     // Find all active auctions that have passed their end time
     const expiredAuctions = await Auction.find({
-      status: 'active',
-      endTime: { $lt: currentTime }
-    }).populate('product');
+      status: "active",
+      endTime: { $lt: currentTime },
+    }).populate("product");
 
     for (const auction of expiredAuctions) {
       // If there are bids, set the winner
       if (auction.bids.length > 0) {
         const winningBid = auction.bids[auction.bids.length - 1];
         auction.winningBid = winningBid;
-        
+
         // Use PaymentService to handle payment intent creation
-        const { paymentIntent } = await PaymentService.handleAuctionEnd(auction);
+        const { paymentIntent } = await PaymentService.handleAuctionEnd(
+          auction
+        );
         auction.paymentIntentId = paymentIntent.id;
 
         // Notify the winner
         await notificationService.createAndSendNotification({
           user: winningBid.user,
           message: `Congratulations! You won the auction for "${auction.product.title}" with a bid of $${winningBid.amount}. Please complete your payment.`,
-          type: 'auction_won',
+          type: "auction_won",
           metadata: {
             auctionId: auction._id,
-            paymentIntentClientSecret: paymentIntent.client_secret
-          }
+            paymentIntentClientSecret: paymentIntent.client_secret,
+          },
         });
 
         // Notify the farmer
         await notificationService.createAndSendNotification({
           user: auction.product.user,
           message: `Your auction for "${auction.product.title}" has ended with a winning bid of $${winningBid.amount}.`,
-          type: 'auction_ended',
+          type: "auction_ended",
           metadata: {
-            auctionId: auction._id
-          }
+            auctionId: auction._id,
+          },
         });
       } else {
         // Notify the farmer that no bids were placed
         await notificationService.createAndSendNotification({
           user: auction.product.user,
           message: `Your auction for "${auction.product.title}" has ended with no bids.`,
-          type: 'auction_ended_no_bids'
+          type: "auction_ended_no_bids",
         });
       }
 
-      auction.status = 'ended';
+      auction.status = "ended";
       await auction.save();
     }
   } catch (error) {
-    console.error('Error in checkAndUpdateExpiredAuctions:', error);
+    console.error("Error in checkAndUpdateExpiredAuctions:", error);
   }
 };
 
@@ -76,20 +78,21 @@ exports.getAuctions = async (req, res) => {
     await checkAndUpdateExpiredAuctions();
 
     // Only fetch active auctions by default
-    const showEnded = req.query.showEnded === 'true';
-    const query = showEnded ? {} : { status: 'active' };
-    
-    const auctions = await Auction.find(query).populate('product');
-    
+    const showEnded = req.query.showEnded === "true";
+    const query = showEnded ? {} : { status: "active" };
+
+    const auctions = await Auction.find(query).populate("product");
+
     const updatedAuctions = auctions.map((auction) => {
-      const highestBid = auction.bids.length > 0
-        ? Math.max(...auction.bids.map((bid) => bid.amount))
-        : auction.startingPrice;
+      const highestBid =
+        auction.bids.length > 0
+          ? Math.max(...auction.bids.map((bid) => bid.amount))
+          : auction.startingPrice;
 
       return {
         ...auction.toObject(),
         highestBid,
-        status: auction.status
+        status: auction.status,
       };
     });
 
@@ -106,7 +109,7 @@ exports.getFarmerAuctions = async (req, res) => {
     const { status } = req.query;
 
     // Build query based on status filter
-    const query = { 'product.user': farmerId };
+    const query = { "product.user": farmerId };
     if (status) {
       query.status = status;
     }
@@ -114,15 +117,15 @@ exports.getFarmerAuctions = async (req, res) => {
     const auctions = await Auction.find(query)
       // .select('_id product startingPrice currentPrice endTime auctionQuantity status')
       .populate({
-        path: 'product',
-        populate: { path: 'user' }
+        path: "product",
+        populate: { path: "user" },
       })
       .sort({ createdAt: -1 });
 
     res.json(auctions);
   } catch (error) {
-    console.error('Error in getFarmerAuctions:', error);
-    res.status(500).json({ message: 'Error fetching farmer auctions' });
+    console.error("Error in getFarmerAuctions:", error);
+    res.status(500).json({ message: "Error fetching farmer auctions" });
   }
 };
 
@@ -131,33 +134,42 @@ exports.getAuctionDetails = async (req, res) => {
   try {
     const auction = await Auction.findById(req.params.auctionId)
       .populate({
-        path: 'product',
-        populate: { path: 'user' }
+        path: "product",
+        populate: { path: "user" },
       })
-      .populate('bids.user', 'name email');
-    
+      .populate("bids.user", "name email");
+
     if (!auction) {
-      return res.status(404).json({ message: 'Auction not found' });
+      return res.status(404).json({ message: "Auction not found" });
     }
 
     res.json(auction);
   } catch (error) {
-    console.error('Error in getAuctionDetails:', error);
-    res.status(500).json({ message: 'Error fetching auction details' });
+    console.error("Error in getAuctionDetails:", error);
+    res.status(500).json({ message: "Error fetching auction details" });
   }
 };
 
 // Create a new auction
 exports.createAuction = async (req, res) => {
   try {
-    const { productId, startingPrice, endTime, minIncrement, auctionQuantity, delivery} = req.body;
-    
+    const {
+      productId,
+      startingPrice,
+      endTime,
+      minIncrement,
+      auctionQuantity,
+      delivery,
+    } = req.body;
+
     const product = await Product.findById(productId);
     if (!product) {
-      return res.status(404).json({ message: 'Product not found' });
+      return res.status(404).json({ message: "Product not found" });
     }
-    if (product.totalQuantity < auctionQuantity){
-      return res.status(404).json({message: 'Auction quantity is larger that available quantity'});
+    if (product.totalQuantity < auctionQuantity) {
+      return res.status(404).json({
+        message: "Auction quantity is larger that available quantity",
+      });
     }
     product.totalQuantity -= auctionQuantity;
     await product.save();
@@ -170,14 +182,14 @@ exports.createAuction = async (req, res) => {
       auctionQuantity,
       minIncrement,
       delivery,
-      status: 'active'
+      status: "active",
     });
 
     await auction.save();
     res.status(201).json(auction);
   } catch (error) {
-    console.error('Error in createAuction:', error);
-    res.status(500).json({ message: 'Error creating auction' });
+    console.error("Error in createAuction:", error);
+    res.status(500).json({ message: "Error creating auction" });
   }
 };
 
@@ -190,34 +202,36 @@ exports.submitBid = async (req, res) => {
 
     // Validate auctionId is a valid ObjectId
     if (!mongoose.Types.ObjectId.isValid(auctionId)) {
-      return res.status(400).json({ message: 'Invalid auction ID format' });
+      return res.status(400).json({ message: "Invalid auction ID format" });
     }
 
-    const auction = await Auction.findById(auctionId)
-      .populate({
-        path: 'product',
-        populate: { path: 'user' }
-      });
+    const auction = await Auction.findById(auctionId).populate({
+      path: "product",
+      populate: { path: "user" },
+    });
     if (!auction) {
-      return res.status(404).json({ message: 'Auction not found' });
+      return res.status(404).json({ message: "Auction not found" });
     }
 
-    if (auction.status !== 'active') {
-      return res.status(400).json({ message: 'This auction has ended' });
+    if (auction.status !== "active") {
+      return res.status(400).json({ message: "This auction has ended" });
     }
 
-    const currentHighestBid = auction.bids.length > 0
-      ? Math.max(...auction.bids.map((bid) => bid.amount))
-      : auction.startingPrice;
+    const currentHighestBid =
+      auction.bids.length > 0
+        ? Math.max(...auction.bids.map((bid) => bid.amount))
+        : auction.startingPrice;
 
     if (bidAmount <= currentHighestBid) {
-      return res.status(400).json({ message: 'Bid must be higher than current highest bid' });
+      return res
+        .status(400)
+        .json({ message: "Bid must be higher than current highest bid" });
     }
 
     auction.bids.push({
       user: userId,
       amount: bidAmount,
-      time: new Date()
+      time: new Date(),
     });
 
     auction.currentPrice = bidAmount;
@@ -228,31 +242,31 @@ exports.submitBid = async (req, res) => {
       const previousBidder = auction.bids[auction.bids.length - 2].user;
 
       // Cross check with contract controler //
-      //creates a notification in mongodb. On success, the created object is returned 
+      //creates a notification in mongodb. On success, the created object is returned
       const notification = await NotificationModel.create({
         user: previousBidder,
         title: "new bidder",
         message: `Your bid on "${auction.product.title}" has been outbid. New highest bid: $${bidAmount}`,
         category: "auction",
         priority: "high",
-        type: 'auction_bid_outbid',
-        metadata: { auctionId: auction._id }
+        type: "auction_bid_outbid",
+        metadata: { auctionId: auction._id },
       });
 
       //if notification is undefined, a not created error is thrown
-      if(!notification){
-        throw new Error("could not create notification in database")
+      if (!notification) {
+        throw new Error("could not create notification in database");
       }
 
       //if notiication was created, the notification is sent using webhook to the frontend
       const io = req.app.get("io");
-      io.to(`user_${previousBidder}`).emit('notificationUpdate', notification);
+      io.to(`user_${previousBidder}`).emit("notificationUpdate", notification);
     }
 
     res.json(auction);
   } catch (error) {
-    console.error('Error in submitBid:', error);
-    res.status(500).json({ message: error.message || 'Error submitting bid' });
+    console.error("Error in submitBid:", error);
+    res.status(500).json({ message: error.message || "Error submitting bid" });
   }
 };
 
@@ -261,75 +275,77 @@ exports.endAuction = async (req, res) => {
   try {
     const auction = await Auction.findById(req.params.auctionId);
     if (!auction) {
-      return res.status(404).json({ message: 'Auction not found' });
+      return res.status(404).json({ message: "Auction not found" });
     }
 
-    auction.status = 'ended';
+    auction.status = "ended";
     await auction.save();
 
-    res.json({ message: 'Auction ended successfully' });
+    res.json({ message: "Auction ended successfully" });
   } catch (error) {
-    console.error('Error in endAuction:', error);
-    res.status(500).json({ message: 'Error ending auction' });
+    console.error("Error in endAuction:", error);
+    res.status(500).json({ message: "Error ending auction" });
   }
 };
 
 // Accept a bid
-// Notification works properly 
+// Notification works properly
 exports.acceptBid = async (req, res) => {
   try {
     const { auctionId } = req.params;
     const { bidId } = req.body;
+
     const io = req.app.get("io");
 
     // Validate auctionId format
     if (!mongoose.Types.ObjectId.isValid(auctionId)) {
-      return res.status(400).json({ message: 'Invalid auction ID format' });
+      return res.status(400).json({ message: "Invalid auction ID format" });
     }
 
     const auction = await Auction.findById(auctionId)
       .populate({
-        path: 'product',
-        populate: { path: 'user' }
+        path: "product",
+        populate: { path: "user" },
       })
-      .populate('bids.user');
+      .populate("bids.user");
 
     if (!auction) {
-      return res.status(404).json({ message: 'Auction not found' });
+      return res.status(404).json({ message: "Auction not found" });
     }
 
     // Authorization check
     if (auction.product.user._id.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'Not authorized to accept bids' });
+      return res.status(403).json({ message: "Not authorized to accept bids" });
     }
 
-    const winningBid = auction.bids.find(bid => bid._id.equals(bidId));
+    const winningBid = auction.bids.find((bid) => bid._id.equals(bidId));
     if (!winningBid) {
-      return res.status(404).json({ message: 'Bid not found' });
+      return res.status(404).json({ message: "Bid not found" });
     }
 
     // Create payment intent
-    const { paymentIntent } = await PaymentService.createPaymentIntent({
-      amount: winningBid.amount,
-      sourceType: 'auction',
-      sourceId: auction._id.toString(),
-      buyerId: winningBid.user._id.toString(),
-      sellerId: auction.product.user._id.toString(),
-      metadata: {
-        auctionId: auction._id.toString(),
-        productId: auction.product._id.toString(),
-        bidId: winningBid._id.toString(),
-        deliveryMethod: auction.delivery ? 'delivery' : 'pickup'
-      }
-    });
+    const { client_secret, status, id, fees, transaction } =
+      await PaymentService.createPaymentIntent({
+        amount: winningBid.amount,
+        sourceType: "auction",
+        sourceId: auction._id.toString(),
+        buyerId: winningBid.user._id.toString(),
+        sellerId: auction.product.user._id.toString(),
+        metadata: {
+          auctionId: auction._id.toString(),
+          productId: auction.product._id.toString(),
+          bidId: winningBid._id.toString(),
+          deliveryMethod: auction.delivery ? "delivery" : "pickup",
+        },
+      });
 
     // Update auction status
-    auction.paymentIntentId = paymentIntent.id;
-    auction.status = 'ended';
+    auction.paymentIntentId = id;
+    auction.status = "ended";
     auction.winningBid = {
       user: winningBid.user._id,
       amount: winningBid.amount,
-      time: new Date()
+      time: new Date(),
     };
     auction.acceptedAt = new Date();
     await auction.save();
@@ -341,13 +357,13 @@ exports.acceptBid = async (req, res) => {
       message: `Congratulations! Your bid of $${winningBid.amount} was accepted for "${auction.product.title}". Click here to complete your payment.`,
       category: NOTIFICATION_CATEGORIES.AUCTION,
       priority: PRIORITY_LEVELS.HIGH,
-      type: 'auction_won',  
+      type: "auction_won",
       metadata: {
         auctionId: auction._id,
         amount: winningBid.amount,
         title: auction.product.title,
-        paymentIntentClientSecret: paymentIntent.client_secret
-      }
+        paymentIntentClientSecret: client_secret,
+      },
     });
 
     if (!buyerNotification) {
@@ -361,12 +377,12 @@ exports.acceptBid = async (req, res) => {
       message: `A bid of $${winningBid.amount} has been accepted for your auction "${auction.product.title}".`,
       category: NOTIFICATION_CATEGORIES.AUCTION,
       priority: PRIORITY_LEVELS.MEDIUM,
-      type: 'auction_ended', 
+      type: "auction_ended",
       metadata: {
         auctionId: auction._id,
         amount: winningBid.amount,
-        title: auction.product.title
-      }
+        title: auction.product.title,
+      },
     });
 
     if (!sellerNotification) {
@@ -374,19 +390,25 @@ exports.acceptBid = async (req, res) => {
     }
 
     // Real-time updates for both parties
-    io.to(`user_${winningBid.user._id}`).emit('notificationUpdate', buyerNotification);
-    io.to(`user_${auction.product.user._id}`).emit('notificationUpdate', sellerNotification);
+    io.to(`user_${winningBid.user._id}`).emit(
+      "notificationUpdate",
+      buyerNotification
+    );
+    io.to(`user_${auction.product.user._id}`).emit(
+      "notificationUpdate",
+      sellerNotification
+    );
 
-    res.json({ 
-      message: 'Bid accepted successfully', 
+    res.json({
+      message: "Bid accepted successfully",
       auction,
       notifications: {
         buyer: winningBid.user,
-        seller: auction.product.user
-      }
+        seller: auction.product.user,
+      },
     });
   } catch (error) {
-    console.error('Error accepting bid:', error);
+    console.error("Error accepting bid:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -398,45 +420,52 @@ exports.createPaymentIntent = async (req, res) => {
 
     // Validate auctionId format
     if (!mongoose.Types.ObjectId.isValid(auctionId)) {
-      return res.status(400).json({ message: 'Invalid auction ID format' });
+      return res.status(400).json({ message: "Invalid auction ID format" });
     }
 
     // Retrieve the auction with its associated product and bids
     const auction = await Auction.findById(auctionId)
       .populate({
-        path: 'product',
-        populate: { path: 'user' }
+        path: "product",
+        populate: { path: "user" },
       })
-      .populate('bids.user');
+      .populate("bids.user");
 
     if (!auction) {
-      return res.status(404).json({ message: 'Auction not found' });
+      return res.status(404).json({ message: "Auction not found" });
     }
 
     // Ensure the auction has an accepted bid
     if (!auction.winningBid) {
-      return res.status(400).json({ message: 'Auction does not have an accepted bid yet' });
+      return res
+        .status(400)
+        .json({ message: "Auction does not have an accepted bid yet" });
     }
 
     // Verify that the requesting user is the winner
     if (auction.winningBid.user.toString() !== req.user.id.toString()) {
-      return res.status(403).json({ message: 'Only the auction winner can make payment' });
+      return res
+        .status(403)
+        .json({ message: "Only the auction winner can make payment" });
     }
 
     // Find the matching bid details
-    const matchingBid = auction.bids.find(bid => 
-      bid.user._id.toString() === auction.winningBid.user.toString() &&
-      bid.amount === auction.winningBid.amount
+    const matchingBid = auction.bids.find(
+      (bid) =>
+        bid.user._id.toString() === auction.winningBid.user.toString() &&
+        bid.amount === auction.winningBid.amount
     );
 
     if (!matchingBid) {
-      return res.status(400).json({ message: 'Winning bid details could not be found' });
+      return res
+        .status(400)
+        .json({ message: "Winning bid details could not be found" });
     }
 
     // Create payment intent
     const paymentData = await PaymentService.createPaymentIntent({
       amount: auction.winningBid.amount,
-      sourceType: 'auction',
+      sourceType: "auction",
       sourceId: auction._id.toString(),
       buyerId: auction.winningBid.user.toString(),
       sellerId: auction.product.user._id.toString(),
@@ -444,8 +473,8 @@ exports.createPaymentIntent = async (req, res) => {
         auctionId: auction._id.toString(),
         productId: auction.product._id.toString(),
         bidId: matchingBid._id.toString(),
-        deliveryMethod: auction.delivery ? 'delivery' : 'pickup'
-      }
+        deliveryMethod: auction.delivery ? "delivery" : "pickup",
+      },
     });
 
     // Update auction with payment intent ID
@@ -455,23 +484,24 @@ exports.createPaymentIntent = async (req, res) => {
     }
 
     // Return complete payment intent data
-    res.json({ 
+    res.json({
       client_secret: paymentData.client_secret,
       status: paymentData.status,
+      sourceId: auction._id.toString(),
+      sellerId: auction.product.user._id.toString(),
       id: paymentData.id,
       amount: auction.winningBid.amount,
-      fees: paymentData.fees
+      fees: paymentData.fees,
     });
-
   } catch (error) {
-    console.error('Error creating payment intent:', error);
+    console.error("Error creating payment intent:", error);
     res.status(500).json({ error: error.message });
   }
 };
 
 // Handle successful payment webhook
 exports.handlePaymentWebhook = async (req, res) => {
-  const sig = req.headers['stripe-signature'];
+  const sig = req.headers["stripe-signature"];
   let event;
 
   try {
@@ -481,37 +511,37 @@ exports.handlePaymentWebhook = async (req, res) => {
       process.env.STRIPE_WEBHOOK_SECRET
     );
   } catch (err) {
-    console.error('Webhook Error:', err.message);
+    console.error("Webhook Error:", err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  if (event.type === 'payment_intent.succeeded') {
+  if (event.type === "payment_intent.succeeded") {
     const paymentIntent = event.data.object;
     const { auctionId } = paymentIntent.metadata;
 
     try {
       const auction = await Auction.findById(auctionId);
       if (auction) {
-        auction.status = 'paid';
+        auction.status = "paid";
         await auction.save();
 
         // Create notifications for both buyer and seller
         const winningBid = auction.bids[auction.bids.length - 1];
-        
+
         await notificationService.createAndSendNotification({
           user: winningBid.user,
           message: `Payment successful for auction "${auction.title}". The seller will be notified to fulfill your order.`,
-          type: 'payment_success'
+          type: "payment_success",
         });
 
         await notificationService.createAndSendNotification({
           user: auction.product.user,
           message: `Payment received for auction "${auction.title}". Please proceed with order fulfillment.`,
-          type: 'payment_received'
+          type: "payment_received",
         });
       }
     } catch (error) {
-      console.error('Error processing successful payment:', error);
+      console.error("Error processing successful payment:", error);
     }
   }
 
@@ -528,5 +558,5 @@ module.exports = {
   endAuction: exports.endAuction,
   acceptBid: exports.acceptBid,
   createPaymentIntent: exports.createPaymentIntent,
-  handlePaymentWebhook: exports.handlePaymentWebhook
+  handlePaymentWebhook: exports.handlePaymentWebhook,
 };
