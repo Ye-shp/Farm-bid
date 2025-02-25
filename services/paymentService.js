@@ -1,11 +1,11 @@
-const stripe = require('../config/stripeconfig');
-const { Transaction } = require('../models/Transaction');
-const { Payout } = require('../models/Payout');
-const User = require('../models/User');
+const stripe = require("../config/stripeconfig");
+const { Transaction } = require("../models/Transaction");
+const { Payout } = require("../models/Payout");
+const User = require("../models/User");
 
 const PLATFORM_FEE_PERCENTAGE = 0.05; // 5%
 const PROCESSING_FEE_PERCENTAGE = 0.029; // 2.9%
-const PROCESSING_FEE_FIXED = 0.30; // $0.30
+const PROCESSING_FEE_FIXED = 0.3; // $0.30
 
 class PaymentService {
   /**
@@ -14,21 +14,29 @@ class PaymentService {
   static calculateFees(amount) {
     return {
       platform: amount * PLATFORM_FEE_PERCENTAGE,
-      processing: (amount * PROCESSING_FEE_PERCENTAGE) + PROCESSING_FEE_FIXED
+      processing: amount * PROCESSING_FEE_PERCENTAGE + PROCESSING_FEE_FIXED,
     };
   }
 
   /**
    * Create a payment intent and transaction record
    */
-  static async createPaymentIntent({ amount, sourceType, sourceId, buyerId, sellerId, metadata = {}, options = {} }) {
+  static async createPaymentIntent({
+    amount,
+    sourceType,
+    sourceId,
+    buyerId,
+    sellerId,
+    metadata = {},
+    options = {},
+  }) {
     try {
       // Calculate fees
       const fees = this.calculateFees(amount);
-      
+
       const paymentIntent = await stripe.paymentIntents.create({
         amount: Math.round(amount * 100), // Convert to cents
-        currency: 'usd',
+        currency: "usd",
         automatic_payment_methods: { enabled: true },
         ...options,
         metadata: {
@@ -36,33 +44,35 @@ class PaymentService {
           sourceId,
           buyerId,
           sellerId,
-          ...metadata
-        }
+          ...metadata,
+        },
       });
 
-      // Create transaction record
-      const transaction = await Transaction.create({
-        sourceType,
-        sourceId,
-        buyer: buyerId,
-        seller: sellerId,
-        amount,
-        fees,
-        delivery:{
-          method: metadata.deliveryMethod,
-        },
-        status: 'pending',
-        paymentIntent: {
-          stripeId: paymentIntent.id,
-          status: paymentIntent.status,
-          attempts: [{
-            timestamp: new Date(),
-            status: paymentIntent.status
-          }],
-          lastAttempt: new Date()
-        },
-        metadata: new Map(Object.entries(metadata))
-      });
+      // // Create transaction record
+      // const transaction = await Transaction.create({
+      //   sourceType,
+      //   sourceId,
+      //   buyer: buyerId,
+      //   seller: sellerId,
+      //   amount,
+      //   fees,
+      //   delivery: {
+      //     method: metadata.deliveryMethod,
+      //   },
+      //   status: "pending",
+      //   paymentIntent: {
+      //     stripeId: paymentIntent.id,
+      //     status: paymentIntent.status,
+      //     attempts: [
+      //       {
+      //         timestamp: new Date(),
+      //         status: paymentIntent.status,
+      //       },
+      //     ],
+      //     lastAttempt: new Date(),
+      //   },
+      //   metadata: new Map(Object.entries(metadata)),
+      // });
 
       // Return all necessary data
       return {
@@ -70,10 +80,10 @@ class PaymentService {
         status: paymentIntent.status,
         id: paymentIntent.id,
         fees,
-        transaction: transaction // Include transaction for reference if needed
+        // transaction: transaction, // Include transaction for reference if needed
       };
     } catch (error) {
-      console.error('Error creating payment intent:', error);
+      console.error("Error creating payment intent:", error);
       throw error;
     }
   }
@@ -87,19 +97,19 @@ class PaymentService {
     }
 
     const winningBid = auction.bids[auction.bids.length - 1];
-    
+
     try {
       const paymentData = await this.createPaymentIntent({
         amount: winningBid.amount,
-        sourceType: 'auction',
+        sourceType: "auction",
         sourceId: auction._id,
         buyerId: winningBid.user,
         sellerId: auction.product.user,
         metadata: {
           productId: auction.product._id.toString(),
           productTitle: auction.product.title,
-          bidId: winningBid._id.toString()
-        }
+          bidId: winningBid._id.toString(),
+        },
       });
 
       // Ensure we return all necessary fields
@@ -108,10 +118,10 @@ class PaymentService {
         status: paymentData.status,
         id: paymentData.id,
         amount: winningBid.amount,
-        fees: paymentData.fees
+        fees: paymentData.fees,
       };
     } catch (error) {
-      console.error('Error handling auction end payment:', error);
+      console.error("Error handling auction end payment:", error);
       throw error;
     }
   }
@@ -121,34 +131,36 @@ class PaymentService {
    */
   static async processPayout(transactionId) {
     try {
-      const transaction = await Transaction.findById(transactionId)
-        .populate('seller', 'stripeAccountId');
+      const transaction = await Transaction.findById(transactionId).populate(
+        "seller",
+        "stripeAccountId"
+      );
 
       if (!transaction) {
-        throw new Error('Transaction not found');
+        throw new Error("Transaction not found");
       }
 
-      if (transaction.status !== 'payment_held') {
-        throw new Error('Transaction not ready for payout');
+      if (transaction.status !== "payment_held") {
+        throw new Error("Transaction not ready for payout");
       }
 
       const seller = transaction.seller;
       if (!seller.stripeAccountId) {
-        throw new Error('Seller not setup for payouts');
+        throw new Error("Seller not setup for payouts");
       }
 
       const payoutAmount = transaction.calculatePayoutAmount();
 
       const transfer = await stripe.transfers.create({
         amount: Math.round(payoutAmount * 100),
-        currency: 'usd',
+        currency: "usd",
         destination: seller.stripeAccountId,
         description: `Payout for ${transaction.sourceType} ${transaction.sourceId}`,
         metadata: {
           transactionId: transaction._id.toString(),
           sourceType: transaction.sourceType,
-          sourceId: transaction.sourceId.toString()
-        }
+          sourceId: transaction.sourceId.toString(),
+        },
       });
 
       // Update transaction with payout details
@@ -156,9 +168,9 @@ class PaymentService {
         stripeId: transfer.id,
         status: transfer.status,
         amount: payoutAmount,
-        processedAt: new Date()
+        processedAt: new Date(),
       };
-      transaction.status = 'completed';
+      transaction.status = "completed";
       await transaction.save();
 
       // Create payout record
@@ -167,12 +179,12 @@ class PaymentService {
         amount: payoutAmount,
         date: new Date(),
         stripePayoutId: transfer.id,
-        transaction: transaction._id
+        transaction: transaction._id,
       });
 
       return { transfer, payout, transaction };
     } catch (error) {
-      console.error('Error processing payout:', error);
+      console.error("Error processing payout:", error);
       throw error;
     }
   }
@@ -184,18 +196,18 @@ class PaymentService {
     const { type, data } = event;
 
     switch (type) {
-      case 'payment_intent.succeeded':
+      case "payment_intent.succeeded":
         return await this.handleSuccessfulPayment(data.object);
-      
-      case 'payment_intent.payment_failed':
+
+      case "payment_intent.payment_failed":
         return await this.handleFailedPayment(data.object);
-      
-      case 'payment_intent.processing':
+
+      case "payment_intent.processing":
         return await this.handleProcessingPayment(data.object);
-      
-      case 'transfer.paid':
+
+      case "transfer.paid":
         return await this.handleSuccessfulPayout(data.object);
-      
+
       default:
         console.log(`Unhandled event type ${type}`);
         return null;
@@ -208,10 +220,10 @@ class PaymentService {
   static async handleSuccessfulPayment(paymentIntent) {
     const transaction = await Transaction.findByPaymentIntent(paymentIntent.id);
     if (!transaction) {
-      throw new Error('Transaction not found for payment intent');
+      throw new Error("Transaction not found for payment intent");
     }
 
-    await transaction.updatePaymentStatus('succeeded');
+    await transaction.updatePaymentStatus("succeeded");
     return transaction;
   }
 
@@ -221,10 +233,13 @@ class PaymentService {
   static async handleFailedPayment(paymentIntent) {
     const transaction = await Transaction.findByPaymentIntent(paymentIntent.id);
     if (!transaction) {
-      throw new Error('Transaction not found for payment intent');
+      throw new Error("Transaction not found for payment intent");
     }
 
-    await transaction.updatePaymentStatus('failed', paymentIntent.last_payment_error);
+    await transaction.updatePaymentStatus(
+      "failed",
+      paymentIntent.last_payment_error
+    );
     return transaction;
   }
 
@@ -234,10 +249,10 @@ class PaymentService {
   static async handleProcessingPayment(paymentIntent) {
     const transaction = await Transaction.findByPaymentIntent(paymentIntent.id);
     if (!transaction) {
-      throw new Error('Transaction not found for payment intent');
+      throw new Error("Transaction not found for payment intent");
     }
 
-    await transaction.updatePaymentStatus('processing');
+    await transaction.updatePaymentStatus("processing");
     return transaction;
   }
 
