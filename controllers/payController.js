@@ -224,20 +224,20 @@ const createPayoutForAuction = asyncHandler(async (req, res) => {
     }
 });
 
-// const getSellerBalance = asyncHandler(async (req, res) => {
-//     // Look up the seller using the authenticated user's ID
-//     const seller = await User.findById(FindUserId(req));
-//     if (!seller || !seller.stripeAccountId) {
-//       return res.status(400).json({ message: 'Seller not set up for payments' });
-//     }
+const getSellerBalance = asyncHandler(async (req, res) => {
+    // Look up the seller using the authenticated user's ID
+    const seller = await User.findById(FindUserId(req));
+    if (!seller || !seller.stripeAccountId) {
+      return res.status(400).json({ message: 'Seller not set up for payments' });
+    }
   
-//     // Retrieve the connected account's balance from Stripe
-//     const balance = await stripe.balance.retrieve({
-//       stripeAccount: seller.stripeAccountId,
-//     });
+    // Retrieve the connected account's balance from Stripe
+    const balance = await stripe.balance.retrieve({
+      stripeAccount: seller.stripeAccountId,
+    });
   
-//     res.status(200).json(balance);
-//   });
+    res.status(200).json(balance);
+  });
   
   // Retrieve the seller's payout history from Stripe
   // const getSellerTransfers = asyncHandler(async (req, res) => {
@@ -264,6 +264,6 @@ module.exports = {
     handleWebhook,
     getPaymentDetails,
     createPayoutForAuction,
-    // getSellerBalance,
+    getSellerBalance,
     // getSellerTransfers
 };

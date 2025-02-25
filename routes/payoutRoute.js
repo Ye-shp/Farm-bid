@@ -3,7 +3,7 @@ const router = express.Router();
 const payController = require('../controllers/payController');
 
 
-// router.get('/seller-balance', payController.getSellerBalance);
+router.get('/seller-balance', payController.getSellerBalance);
 // router.get('/seller-transfers', payController.getSellerTransfers);
 
 router.post('/create-payout', payController.createPayout);
