@@ -35,4 +35,8 @@ router.get('/allowed-categories',authMiddleware, getallowedCategories)
 
 router.get('/allowed-products', authMiddleware, getallowedProducts )
 
+router.get('/inventory-reasons', authMiddleware, (req, res) => {
+  res.json(INVENTORY_REASONS);
+});
+
 module.exports = router;
