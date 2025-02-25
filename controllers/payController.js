@@ -200,17 +200,37 @@ const createPayoutForAuction = asyncHandler(async (req, res) => {
     }
 });
 
-// --- New functions for seller balance and transfers ---
-
 const getSellerBalance = asyncHandler(async (req, res) => {
-    // Dummy implementation – replace with actual logic to retrieve the seller's balance
-    res.status(200).json({ available: 1000 });
-});
-
-const getSellerTransfers = asyncHandler(async (req, res) => {
-    // Dummy implementation – replace with actual logic to retrieve the seller's payout history
-    res.status(200).json([]);
-});
+    // Look up the seller using the authenticated user's ID
+    const seller = await User.findById(req.user.id);
+    if (!seller || !seller.stripeAccountId) {
+      return res.status(400).json({ message: 'Seller not set up for payments' });
+    }
+  
+    // Retrieve the connected account's balance from Stripe
+    const balance = await stripe.balance.retrieve({
+      stripeAccount: seller.stripeAccountId,
+    });
+  
+    res.status(200).json(balance);
+  });
+  
+  // Retrieve the seller's payout history from Stripe
+  const getSellerTransfers = asyncHandler(async (req, res) => {
+    // Look up the seller using the authenticated user's ID
+    const seller = await User.findById(req.user.id);
+    if (!seller || !seller.stripeAccountId) {
+      return res.status(400).json({ message: 'Seller not set up for payments' });
+    }
+  
+    // List payouts (transfers) for the connected account
+    const payouts = await stripe.payouts.list(
+      { limit: 100 },
+      { stripeAccount: seller.stripeAccountId }
+    );
+  
+    res.status(200).json(payouts.data);
+  });
 
 module.exports = {
     addBankAccount,
