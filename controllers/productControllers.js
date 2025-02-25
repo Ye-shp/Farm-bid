@@ -510,3 +510,65 @@ exports.getproductAnalytics = async (req, res) => {
     });
   }
 };
+
+exports.updateInventory = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { quantity, reason, location, notes } = req.body;
+
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    // Verify ownership
+    if (product.user.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Unauthorized access' });
+    }
+
+    // Validate new quantity
+    const newTotal = product.totalQuantity + quantity;
+    if (newTotal < 0) {
+      return res.status(400).json({ message: 'Insufficient stock' });
+    }
+
+    // Update total quantity
+    product.totalQuantity = newTotal;
+
+    // Add to inventory history
+    product.inventoryHistory.push({
+      quantity,
+      reason,
+      location,
+      notes
+    });
+
+    await product.save();
+
+    res.json({ message: 'Inventory updated successfully', product });
+  } catch (error) {
+    console.error('Inventory update error:', error);
+    res.status(500).json({ message: 'Failed to update inventory' });
+  }
+};
+
+exports.getInventoryHistory = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const product = await Product.findById(id);
+    
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    // Verify ownership
+    if (product.user.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Unauthorized access' });
+    }
+
+    res.json(product.inventoryHistory);
+  } catch (error) {
+    console.error('Error fetching inventory history:', error);
+    res.status(500).json({ message: 'Failed to fetch inventory history' });
+  }
+};

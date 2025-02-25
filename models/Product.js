@@ -116,6 +116,24 @@ const ProductionPracticesSchema = new mongoose.Schema({
   growingConditions: String
 });
 
+const inventoryHistorySchema = new mongoose.Schema({
+  quantity: {
+    type: Number,
+    required: true
+  },
+  reason: {
+    type: String,
+    required: true,
+    enum: ['harvest', 'purchase', 'return', 'sale', 'damage', 'transfer', 'adjustment']
+  },
+  location: String,
+  notes: String,
+  timestamp: {
+    type: Date,
+    default: Date.now
+  }
+});
+
 const allowedProducts = Object.values(productCategories).flat();
 const allowedCategories = Object.keys(productCategories);
 
@@ -127,9 +145,19 @@ const ProductSchema = new mongoose.Schema({
   }, 
   totalQuantity: {
     type: Number, 
-    required: false, 
+    required: true, 
     min: 0 
   },
+  lowStockThreshold: {
+    type: Number,
+    default: 100
+  },
+  inventoryHistory: [inventoryHistorySchema],
+  storageLocations: [{
+    name: String,
+    quantity: Number,
+    capacity: Number
+  }],
   title: {
     type: String,
     enum: allowedProducts,
