@@ -224,7 +224,7 @@ const getSellerBalance = asyncHandler(async (req, res) => {
     // Look up the seller using the authenticated user's ID
     const seller = await User.findById(req.user.id);
     if (!seller || !seller.stripeAccountId) {
-      return res.status(200).json({ redirect: '/create-connected-account', message: 'Seller not set up for payouts' });
+      return res.status(200).json({ redirect: '/create-connected-account', message: 'Seller balance message' });
     }
   
     // Retrieve the connected account's balance from Stripe
@@ -240,7 +240,7 @@ const getSellerBalance = asyncHandler(async (req, res) => {
     // Look up the seller using the authenticated user's ID
     const seller = await User.findById(req.user.id);
     if (!seller || !seller.stripeAccountId) {
-      return res.redirect('/create-connected-account');
+      return res.status(200).json({ redirect: '/create-connected-account', message: 'Seller transfers message ' });
     }
   
     // List payouts (transfers) for the connected account
