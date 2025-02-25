@@ -1,10 +1,11 @@
 const express = require('express');
 const router = express.Router();
+const { authMiddleware } = require('../middleware/authMiddleware');
 const payController = require('../controllers/payController');
 
 
 router.get('/seller-balance',authMiddleware, payController.getSellerBalance);
-// router.get('/seller-transfers', payController.getSellerTransfers);
+router.get('/seller-transfers',authMiddleware, payController.getSellerTransfers);
 
 router.post('/create-payout',authMiddleware, payController.createPayout);
 router.post('/create-connected-account',authMiddleware, payController.createConnectedAccount);
