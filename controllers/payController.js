@@ -84,45 +84,45 @@ const getPaymentDetails = asyncHandler(async (req, res) => {
 
 const createConnectedAccount = asyncHandler(async (req, res) => {
     try {
-        const { email } = req.body;
-        
-        // Retrieve the authenticated user
-        const seller = await User.findById(req.user.id);
-        if (!seller) {
-          return res.status(404).json({ message: 'User not found' });
-        }
-        
-        // If a connected account already exists, return it
-        if (seller.stripeAccountId) {
-          return res.status(200).json({
-            accountId: seller.stripeAccountId,
-            message: 'Connected account already exists',
-          });
-        }
-    
-        // Create a connected account for the seller
-        const account = await stripe.accounts.create({
-          type: 'express',
-          country: 'US',
-          email,
-          capabilities: {
-            card_payments: { requested: true },
-            transfers: { requested: true },
-          },
-        });
-        
-        // Save the account ID in the user's record
-        seller.stripeAccountId = account.id;
-        await seller.save();
-    
-        res.status(200).json({
-          accountId: account.id,
-          message: 'Connected account created and saved successfully!',
-        });
-      } catch (error) {
-        res.status(400).json({ message: error.message });
+      const { email } = req.body;
+      
+      // Retrieve the authenticated seller using req.user._id for consistency
+      const seller = await User.findById(req.user._id);
+      if (!seller) {
+        return res.status(404).json({ message: 'User not found' });
       }
-    });
+      
+      // If a connected account already exists, return it
+      if (seller.stripeAccountId) {
+        return res.status(200).json({
+          accountId: seller.stripeAccountId,
+          message: 'Connected account already exists',
+        });
+      }
+      
+      // Create a new connected account using the provided email (or the seller's email)
+      const account = await stripe.accounts.create({
+        type: 'express',
+        country: 'US',
+        email: email || seller.email,
+        capabilities: {
+          card_payments: { requested: true },
+          transfers: { requested: true },
+        },
+      });
+      
+      // Save the connected account ID to the seller's record
+      seller.stripeAccountId = account.id;
+      await seller.save();
+      
+      res.status(200).json({
+        accountId: account.id,
+        message: 'Connected account created and saved successfully!',
+      });
+    } catch (error) {
+      res.status(400).json({ message: error.message });
+    }
+  });
 
 const addBankAccount = asyncHandler(async (req, res) => {
     try {
@@ -221,7 +221,7 @@ const createPayoutForAuction = asyncHandler(async (req, res) => {
 
 const getSellerBalance = asyncHandler(async (req, res) => {
     // Look up the seller using the authenticated user's ID
-    const seller = await User.findById(req.user.id);
+    const seller = await User.findById(req.user._id);
     if (!seller || !seller.stripeAccountId) {
       return res.status(400).json({ message: 'Seller not set up for payments' });
     }
@@ -237,7 +237,7 @@ const getSellerBalance = asyncHandler(async (req, res) => {
   // Retrieve the seller's payout history from Stripe
   const getSellerTransfers = asyncHandler(async (req, res) => {
     // Look up the seller using the authenticated user's ID
-    const seller = await User.findById(req.user.id);
+    const seller = await User.findById(req.user._id);
     if (!seller || !seller.stripeAccountId) {
       return res.status(400).json({ message: 'Seller not set up for payments' });
     }
