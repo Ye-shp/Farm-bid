@@ -1,6 +1,6 @@
 const asyncHandler = require('express-async-handler');
 const stripe = require('../config/stripeconfig');
-const Auctions = require('../models/Auctions');
+const Auctions = require('../models/Auction');
 const Payout = require('../models/Payout');
 const User = require('../models/User');
 

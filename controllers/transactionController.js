@@ -3,7 +3,7 @@ const Transaction = require('../models/Transaction');
 const Notification = require('../models/Notification');
 const stripe = require('../config/stripeconfig');
 const User = require('../models/User');
-const Auction = require('../models/Auctions');
+const Auction = require('../models/Auction');
 const OpenContract = require('../models/OpenContract');
 const asyncHandler = require('express-async-handler');
 

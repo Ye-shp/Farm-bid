@@ -1,7 +1,7 @@
 const OpenContract = require('../models/OpenContract');
 const User = require('../models/User');
 const Order = require('../models/Order');
-const Auction = require('../models/Auctions');
+const Auction = require('../models/Auction');
 const Notification = require('../models/Notification');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
