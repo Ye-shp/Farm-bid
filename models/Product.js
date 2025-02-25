@@ -121,11 +121,7 @@ const inventoryHistorySchema = new mongoose.Schema({
     type: Number,
     required: true
   },
-  reason: {
-    type: String,
-    required: true,
-    enum: ['harvest', 'purchase', 'return', 'sale', 'damage', 'transfer', 'adjustment']
-  },
+
   location: String,
   notes: String,
   timestamp: {
@@ -133,6 +129,12 @@ const inventoryHistorySchema = new mongoose.Schema({
     default: Date.now
   }
 });
+
+// Add inventory reason constants
+const INVENTORY_REASONS = {
+  ADD: ['harvest', 'purchase', 'return', 'adjustment'],
+  REMOVE: ['sale', 'damage', 'transfer', 'adjustment']
+};
 
 const allowedProducts = Object.values(productCategories).flat();
 const allowedCategories = Object.keys(productCategories);
@@ -219,5 +221,6 @@ module.exports = {
   Product,
   productCategories,
   allowedCategories,
-  allowedProducts
+  allowedProducts,
+  INVENTORY_REASONS  // Export the constants
 };
