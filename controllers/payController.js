@@ -4,11 +4,7 @@ const Auctions = require('../models/Auctions');
 const Payout = require('../models/Payout');
 const User = require('../models/User');
 
-
-const FindUserId = (req) => {
-  return req.user._id ? req.user._id : req.user.id;
-};
-
+// This one is only for auctions
 const createPaymentIntent = asyncHandler(async (req, res) => {
     try {
         const { amount, currency = 'usd' } = req.body;
@@ -226,7 +222,7 @@ const createPayoutForAuction = asyncHandler(async (req, res) => {
 
 const getSellerBalance = asyncHandler(async (req, res) => {
     // Look up the seller using the authenticated user's ID
-    const seller = await User.findById(FindUserId(req));
+    const seller = await User.findById(req.user.id);
     if (!seller || !seller.stripeAccountId) {
       return res.status(400).json({ message: 'Seller not set up for payments' });
     }
