@@ -264,6 +264,6 @@ module.exports = {
     handleWebhook,
     getPaymentDetails,
     createPayoutForAuction,
-    getSellerBalance,
+    // getSellerBalance,
     // getSellerTransfers
 };
