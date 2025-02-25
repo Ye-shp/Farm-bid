@@ -1,6 +1,6 @@
 const AWS = require('aws-sdk');
 const {Product, productCategories, allowedCategories, allowedProducts }= require('../models/Product');
-const Auction = require('../models/Product');
+const Auction = require('../models/Auction');
 const Order = require('../models/Order');
 const multer = require('multer');
 const multerS3 = require('multer-s3');
@@ -282,58 +282,8 @@ async function calculateOrderMetrics(productId, startDate, endDate) {
 exports.getproductAnalytics = async (req, res) => {
   try {
     const { productId } = req.params;
+    console.log('Analyzing product:', productId); // Add logging
     
-    // Helper functions
-    const calculateAuctionMetrics = async (productId, startDate, endDate) => {
-      const auctionHistory = await Auction.find({
-        product: productId,
-        createdAt: { $gte: startDate, $lte: endDate }
-      }).populate('bids.user', 'name location');
-
-      const activeAuctions = await Auction.countDocuments({
-        product: productId,
-        status: 'active',
-        endTime: { $gte: new Date() }
-      });
-
-      const totalAuctions = auctionHistory.length;
-      const completedAuctions = auctionHistory.filter(a => a.status === 'ended');
-      const successfulAuctions = completedAuctions.filter(a => a.winningBid);
-      
-      const successRate = completedAuctions.length > 0 
-        ? (successfulAuctions.length / completedAuctions.length) * 100 
-        : 0;
-
-      return {
-        activeAuctions,
-        auctionHistory,
-        totalAuctions,
-        successRate,
-        averageBidsPerAuction: auctionHistory.reduce((acc, auction) => 
-          acc + (auction.bids?.length || 0), 0) / Math.max(totalAuctions, 1)
-      };
-    };
-
-    const calculateOrderMetrics = async (productId, startDate, endDate) => {
-      const orderHistory = await Order.find({
-        auction: { $in: await Auction.find({ product: productId }).select('_id') },
-        createdAt: { $gte: startDate, $lte: endDate }
-      }).populate('buyer', 'name location');
-
-      const totalOrders = orderHistory.length;
-      const totalRevenue = orderHistory.reduce((sum, order) => sum + order.amount, 0);
-
-      return {
-        orderHistory,
-        totalOrders,
-        totalRevenue,
-        averageOrderValue: totalOrders > 0 ? totalRevenue / totalOrders : 0,
-        fulfillmentRate: orderHistory.filter(order => 
-          order.status === 'fulfilled').length / Math.max(totalOrders, 1) * 100
-      };
-    };
-
-    // Main controller logic
     const product = await Product.findById(productId);
     if (!product) {
       return res.status(404).json({
@@ -342,39 +292,59 @@ exports.getproductAnalytics = async (req, res) => {
       });
     }
 
-    if (product.user.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        status: 'fail',
-        message: 'Unauthorized access to product analytics'
-      });
-    }
-
     const endDate = new Date();
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - (req.query.days || 30));
 
-    const [auctionMetrics, orderMetrics] = await Promise.all([
-      calculateAuctionMetrics(productId, startDate, endDate),
-      calculateOrderMetrics(productId, startDate, endDate)
-    ]);
+    console.log('Fetching auctions...'); // Add logging
+    // Get auctions for this product
+    const auctions = await Auction.find({
+      product: productId,
+      createdAt: { $gte: startDate, $lte: endDate }
+    });
+
+    console.log(`Found ${auctions.length} auctions`); // Add logging
+
+    const activeAuctions = auctions.filter(a => a.status === 'active').length;
+    const completedAuctions = auctions.filter(a => a.status === 'ended');
+    const successfulAuctions = completedAuctions.filter(a => a.winningBid);
+    
+    // Get orders through these auctions
+    console.log('Fetching orders...'); // Add logging
+    const auctionIds = auctions.map(a => a._id);
+    const orders = await Order.find({
+      auction: { $in: auctionIds }
+    });
+
+    console.log(`Found ${orders.length} orders`); // Add logging
+
+    const totalRevenue = orders.reduce((sum, order) => sum + (order.amount || 0), 0);
+    const averageOrderValue = orders.length > 0 ? totalRevenue / orders.length : 0;
 
     const analytics = {
       timeframe: { start: startDate, end: endDate },
       overview: {
-        totalRevenue: auctionMetrics.totalAuctions + orderMetrics.totalRevenue,
-        averagePrice: orderMetrics.totalRevenue / orderMetrics.totalOrders || 0,
+        totalRevenue,
+        averagePrice: averageOrderValue,
         currentStock: product.totalQuantity,
-        activeAuctions: auctionMetrics.activeAuctions
+        activeAuctions
       },
       auctions: {
-        ...auctionMetrics,
-        successRate: `${auctionMetrics.successRate.toFixed(1)}%`
+        totalAuctions: auctions.length,
+        successRate: `${completedAuctions.length ? 
+          ((successfulAuctions.length / completedAuctions.length) * 100).toFixed(1) : 0}%`,
+        averageBidsPerAuction: (auctions.reduce((acc, auction) => 
+          acc + (auction.bids?.length || 0), 0) / Math.max(auctions.length, 1)).toFixed(1)
       },
       orders: {
-        ...orderMetrics,
-        fulfillmentRate: `${orderMetrics.fulfillmentRate.toFixed(1)}%`
+        totalOrders: orders.length,
+        averageOrderValue: averageOrderValue.toFixed(2),
+        fulfillmentRate: `${orders.length ? 
+          ((orders.filter(o => o.status === 'fulfilled').length / orders.length) * 100).toFixed(1) : 0}%`
       }
     };
+
+    console.log('Analytics generated successfully:', analytics); // Add logging
 
     res.status(200).json({
       status: 'success',
@@ -382,6 +352,7 @@ exports.getproductAnalytics = async (req, res) => {
     });
 
   } catch (error) {
+    console.error('Analytics Error:', error); // Add error logging
     res.status(500).json({
       status: 'error',
       message: 'Failed to generate product analytics',
