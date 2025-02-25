@@ -1,8 +1,8 @@
-const Auction = require("../models/Auctions");
-const { Product } = require("../models/Product");
-const mongoose = require("mongoose");
-const { NotificationModel } = require("../models/Notification");
-const PaymentService = require("../services/paymentService");
+const Auction = require('../models/Auction');  // Changed from '../models/Auctions'
+const { Product } = require('../models/Product');
+const mongoose = require('mongoose');
+const {NotificationModel} = require('../models/Notification');
+const PaymentService = require('../services/paymentService');
 const {
   NOTIFICATION_TYPES,
   NOTIFICATION_CATEGORIES,
