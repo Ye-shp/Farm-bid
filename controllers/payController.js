@@ -2,6 +2,7 @@ const asyncHandler = require('express-async-handler');
 const stripe = require('../config/stripeconfig');
 const Auctions = require('../models/Auctions');
 const Payout = require('../models/Payout');
+const User = require('../models/User');
 
 const createPaymentIntent = asyncHandler(async (req, res) => {
     try {
