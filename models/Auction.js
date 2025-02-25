@@ -60,5 +60,4 @@ const AuctionSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Fix: Export as 'Auction' consistently
 module.exports = mongoose.models.Auction || mongoose.model('Auction', AuctionSchema);
