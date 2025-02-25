@@ -4,6 +4,11 @@ const Auctions = require('../models/Auctions');
 const Payout = require('../models/Payout');
 const User = require('../models/User');
 
+
+const getUserId = (req) => {
+  return req.user._id ? req.user._id : req.user.id;
+};
+
 const createPaymentIntent = asyncHandler(async (req, res) => {
     try {
         const { amount, currency = 'usd' } = req.body;
@@ -110,7 +115,7 @@ const createConnectedAccount = asyncHandler(async (req, res) => {
           transfers: { requested: true },
         },
       });
-      
+
       // Save the connected account ID to the seller's record
       seller.stripeAccountId = account.id;
       await seller.save();
