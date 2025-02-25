@@ -4,7 +4,7 @@ const payController = require('../controllers/payController');
 
 
 router.get('/seller-balance', payController.getSellerBalance);
-router.get('/seller-transfers', payController.getSellerTransfers);
+// router.get('/seller-transfers', payController.getSellerTransfers);
 
 router.post('/create-payout', payController.createPayout);
 router.post('/create-connected-account', payController.createConnectedAccount);
