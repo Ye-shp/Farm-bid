@@ -11,6 +11,7 @@ const {
   productDetails,
   getproductAnalytics,
   getInventoryHistory,
+  updateInventory
 } = require('../controllers/productControllers'); 
 
 const {authMiddleware} = require('../middleware/authMiddleware');
@@ -22,7 +23,7 @@ router.patch('/:productId/approve', authMiddleware, approveProduct);
 router.get('/:productId/analytics', authMiddleware, getproductAnalytics);
 
 // Inventory management routes
-router.post('/:id/inventory', authMiddleware, createProduct);
+router.post('/:id/inventory', authMiddleware, updateInventory);
 router.get('/:id/inventory-history', authMiddleware, getInventoryHistory);
 
 //Dont require auth

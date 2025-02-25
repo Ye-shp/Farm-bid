@@ -210,127 +210,6 @@ exports.approveProduct = async (req, res) => {
   }
 };
 
-const getproductAnalytics = async (req, res) => {
-    try {
-        const { productId } = req.params;
-        
-        const product = await Product.findById(productId);
-        if (!product) {
-            return res.status(404).json({
-                status: 'error',
-                message: 'Product not found'
-            });
-        }
-
-        // Verify user has access to this product
-        if (product.user.toString() !== req.user._id.toString()) {
-            return res.status(403).json({
-                status: 'error',
-                message: 'Unauthorized access to product analytics'
-            });
-        }
-
-        // Get analytics timeframe from query params or default to last 30 days
-        const endDate = new Date();
-        const startDate = new Date();
-        startDate.setDate(startDate.getDate() - (req.query.days || 30));
-
-        // Gather core product metrics
-        const [
-            inventoryMetrics,
-            seasonalityMetrics,
-            certificationStatus,
-            qualityMetrics
-        ] = await Promise.all([
-            calculateInventoryMetrics(product, startDate, endDate),
-            analyzeSeasonalPatterns(product, startDate, endDate),
-            checkCertificationStatus(product),
-            getQualityMetrics(product, startDate, endDate)
-        ]);
-
-        // Gather auction and order metrics
-        const [
-            auctionMetrics,
-            orderMetrics,
-            priceAnalysis,
-            buyerAnalytics
-        ] = await Promise.all([
-            calculateAuctionMetrics(productId, startDate, endDate),
-            calculateOrderMetrics(productId, startDate, endDate),
-            analyzePriceHistory(productId, startDate, endDate),
-            analyzeBuyerBehavior(productId, startDate, endDate)
-        ]);
-
-        // Compile comprehensive analytics
-        const analytics = {
-            timeframe: {
-                start: startDate,
-                end: endDate
-            },
-            overview: {
-                totalRevenue: calculateTotalRevenue(auctionMetrics, orderMetrics),
-                averagePrice: priceAnalysis.averagePrice,
-                totalQuantitySold: calculateTotalQuantitySold(auctionMetrics, orderMetrics),
-                currentStock: product.totalQuantity,
-                activeAuctions: auctionMetrics.activeAuctions
-            },
-            inventory: {
-                ...inventoryMetrics,
-                projectedStockout: calculateProjectedStockout(product, auctionMetrics.demandRate)
-            },
-            auctions: {
-                ...auctionMetrics,
-                bidPatterns: analyzeBidPatterns(auctionMetrics.auctionHistory),
-                optimalStartingPrice: calculateOptimalStartingPrice(auctionMetrics.auctionHistory),
-                seasonalAuctionPerformance: analyzeSeasonalAuctionPerformance(auctionMetrics.auctionHistory)
-            },
-            orders: {
-                ...orderMetrics,
-                fulfillmentMetrics: calculateFulfillmentMetrics(orderMetrics.orderHistory),
-                paymentAnalytics: analyzePaymentPatterns(orderMetrics.orderHistory)
-            },
-            pricing: {
-                ...priceAnalysis,
-                priceElasticity: calculatePriceElasticity(auctionMetrics.auctionHistory),
-                competitivePricing: await analyzeCompetitivePricing(product.category, priceAnalysis)
-            },
-            buyers: {
-                ...buyerAnalytics,
-                loyaltyMetrics: calculateBuyerLoyalty(buyerAnalytics.buyerHistory),
-                geographicDistribution: analyzeGeographicDistribution(buyerAnalytics.buyerHistory)
-            },
-            seasonality: {
-                ...seasonalityMetrics,
-                auctionSeasonality: analyzeAuctionSeasonality(auctionMetrics.auctionHistory),
-                priceSeasonality: analyzePriceSeasonality(priceAnalysis.priceHistory)
-            },
-            recommendations: generateComprehensiveRecommendations({
-                product,
-                inventoryMetrics,
-                auctionMetrics,
-                orderMetrics,
-                priceAnalysis,
-                buyerAnalytics,
-                seasonalityMetrics,
-                qualityMetrics
-            })
-        };
-
-        res.status(200).json({
-            status: 'success',
-            data: analytics
-        });
-
-    } catch (error) {
-        console.error('Product Analytics Error:', error);
-        res.status(500).json({
-            status: 'error',
-            message: 'Error generating product analytics',
-            error: process.env.NODE_ENV === 'development' ? error.message : undefined
-        });
-    }
-};
-
 // Helper Functions
 async function calculateAuctionMetrics(productId, startDate, endDate) {
     try {
@@ -516,6 +395,13 @@ exports.updateInventory = async (req, res) => {
     const { id } = req.params;
     const { quantity, reason, location, notes } = req.body;
 
+    // Validate required fields
+    if (!quantity || !reason) {
+      return res.status(400).json({ 
+        message: 'Quantity and reason are required' 
+      });
+    }
+
     const product = await Product.findById(id);
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
@@ -527,7 +413,7 @@ exports.updateInventory = async (req, res) => {
     }
 
     // Validate new quantity
-    const newTotal = product.totalQuantity + quantity;
+    const newTotal = product.totalQuantity + Number(quantity);
     if (newTotal < 0) {
       return res.status(400).json({ message: 'Insufficient stock' });
     }
@@ -535,17 +421,22 @@ exports.updateInventory = async (req, res) => {
     // Update total quantity
     product.totalQuantity = newTotal;
 
-    // Add to inventory history
+    // Add to inventory history with all fields
     product.inventoryHistory.push({
-      quantity,
+      quantity: Number(quantity),
       reason,
-      location,
-      notes
+      location: location || '',
+      notes: notes || '',
+      timestamp: new Date()
     });
 
     await product.save();
 
-    res.json({ message: 'Inventory updated successfully', product });
+    res.json({ 
+      message: 'Inventory updated successfully', 
+      currentQuantity: product.totalQuantity,
+      lastUpdate: product.inventoryHistory[product.inventoryHistory.length - 1]
+    });
   } catch (error) {
     console.error('Inventory update error:', error);
     res.status(500).json({ message: 'Failed to update inventory' });
