@@ -55,51 +55,39 @@ exports.productDetails = async (req, res) => {
   try {
     const { productId } = req.params;
 
-    // Validate ObjectId format
     if (!mongoose.Types.ObjectId.isValid(productId)) {
-      return res.status(400).json({ 
-        message: 'Invalid product ID format'
-      });
+      return res.status(400).json({ message: 'Invalid product ID format' });
     }
 
     const product = await Product.findById(productId)
-      .select('title customProduct category totalQuantity description imageUrl status createdAt user certifications productSpecs productionPractices wholesaleAvailable deliveryAvailable')
+      .select('title customProduct category totalQuantity description imageUrl status createdAt certifications productSpecs productionPractices wholesaleAvailable deliveryAvailable')
       .lean();
 
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    // Enhanced response with technical data
-    const responseData = {
+    const formattedProduct = {
       ...product,
       displayName: product.title || product.customProduct,
       stockStatus: product.totalQuantity > 0 ? 'In Stock' : 'Out of Stock',
-      lastUpdated: product.createdAt,
-      wholesaleAvailable: product.wholesaleAvailable || false,
-      deliveryAvailable: product.deliveryAvailable || false,
-      isOwner: false,
-      technicalSpecs: {
+      technicalDetails: {
+        specs: product.productSpecs || {},
         certifications: product.certifications || {},
-        productDetails: product.productSpecs || {},
-        productionInfo: product.productionPractices || {}
+        production: product.productionPractices || {}
       }
     };
 
     // Add ownership flag if authenticated
-    if (req.user && product.user.toString() === req.user.id) {
-      responseData.isOwner = true;
+    if (req.user) {
+      formattedProduct.isOwner = product.user?.toString() === req.user.id;
     }
 
-    console.log('Sending product response:', responseData); // Debug log
-    res.json(responseData);
+    res.json(formattedProduct);
 
   } catch (error) {
-    console.error('Product details error:', error); // Debug log
-    res.status(500).json({ 
-      message: 'Server error', 
-      error: error.message 
-    });
+    console.error('Product details error:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
