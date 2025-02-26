@@ -1,4 +1,5 @@
 const AWS = require('aws-sdk');
+const mongoose = require('mongoose');
 const {Product, productCategories, allowedCategories, allowedProducts }= require('../models/Product');
 const Auction = require('../models/Auction');
 const Order = require('../models/Order');
@@ -52,8 +53,17 @@ exports.getallowedProducts = async (req,res)=>{
 // Updated productDetails controller with technical specs
 exports.productDetails = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.productId)
-      .select('title customProduct category totalQuantity description imageUrl status createdAt user certifications productSpecs productionPractices')
+    const { productId } = req.params;
+
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      return res.status(400).json({ 
+        message: 'Invalid product ID format'
+      });
+    }
+
+    const product = await Product.findById(productId)
+      .select('title customProduct category totalQuantity description imageUrl status createdAt user certifications productSpecs productionPractices wholesaleAvailable deliveryAvailable')
       .lean();
 
     if (!product) {
@@ -66,29 +76,30 @@ exports.productDetails = async (req, res) => {
       displayName: product.title || product.customProduct,
       stockStatus: product.totalQuantity > 0 ? 'In Stock' : 'Out of Stock',
       lastUpdated: product.createdAt,
+      wholesaleAvailable: product.wholesaleAvailable || false,
+      deliveryAvailable: product.deliveryAvailable || false,
       isOwner: false,
       technicalSpecs: {
-        certifications: product.certifications,
-        productDetails: product.productSpecs,
-        productionInfo: product.productionPractices
+        certifications: product.certifications || {},
+        productDetails: product.productSpecs || {},
+        productionInfo: product.productionPractices || {}
       }
     };
 
     // Add ownership flag if authenticated
     if (req.user && product.user.toString() === req.user.id) {
       responseData.isOwner = true;
-      // Include raw technical data for owners
-      responseData.rawTechnicalData = {
-        certifications: product.certifications,
-        productSpecs: product.productSpecs,
-        productionPractices: product.productionPractices
-      };
     }
 
+    console.log('Sending product response:', responseData); // Debug log
     res.json(responseData);
 
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error('Product details error:', error); // Debug log
+    res.status(500).json({ 
+      message: 'Server error', 
+      error: error.message 
+    });
   }
 };
 
