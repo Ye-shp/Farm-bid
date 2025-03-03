@@ -8,7 +8,7 @@ const studentAuth = (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.STUDENT_JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.STUDENT_JWT_SECRET || 'your-student-secret-key');
     req.student = decoded;
     next();
   } catch (err) {

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Student = require('../models/Students');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 
 // Student Registration
 router.post('/register', async (req, res) => {
@@ -28,17 +29,37 @@ router.post('/login', async (req, res) => {
     const { studentId, password } = req.body;
     const student = await Student.findOne({ studentId });
     
-    if (!student || !(await student.matchPassword(password))) {
+    if (!student) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    const isMatch = await bcrypt.compare(password, student.password);
+    if (!isMatch) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
     const token = jwt.sign(
       { id: student._id, role: 'student' },
-      process.env.STUDENT_JWT_SECRET,
+      process.env.STUDENT_JWT_SECRET || 'your-student-secret-key',
       { expiresIn: '1d' }
     );
 
     res.json({ token, studentId: student.studentId });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Protected route example
+router.get('/customers', studentAuth, async (req, res) => {
+  try {
+    // Example customer data - replace with your actual data fetch
+    const customers = [
+      { _id: 1, name: 'Farm A', location: 'Location A' },
+      { _id: 2, name: 'Farm B', location: 'Location B' },
+    ];
+    res.json(customers);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
