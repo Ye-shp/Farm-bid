@@ -105,7 +105,7 @@ const farmerRoute = require('./routes/farmerRoute');
 const buyerRoute = require('./routes/buyerRoute');
 
 // For students, remove once we have enough 
-const studentAuth = require('./middleware/studentauth');
+const studentAuth = require('./middleware/studentAuth');
 const studentRoute = require('./routes/studentRoute');
 
 // Use routes
