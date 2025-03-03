@@ -138,4 +138,50 @@ router.post('/prospects/:id/contact', studentAuth, async (req, res) => {
   }
 });
 
+// Get student leaderboard
+router.get('/leaderboard', async (req, res) => {
+  try {
+    const leaderboard = await Student.find({})
+      .select('studentId school successfulOnboards -_id')
+      .sort({ successfulOnboards: -1 })
+      .limit(10);
+    
+    res.json(leaderboard);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Update prospect status and increment student's successful onboards
+router.post('/prospects/:id/convert', studentAuth, async (req, res) => {
+  try {
+    const prospect = await Prospect.findById(req.params.id);
+    if (!prospect) {
+      return res.status(404).json({ message: 'Prospect not found' });
+    }
+
+    if (prospect.assignedStudent.toString() !== req.student._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    prospect.status = 'converted';
+    await prospect.save();
+
+    // Increment the student's successful onboards
+    await Student.findByIdAndUpdate(req.student._id, {
+      $inc: { successfulOnboards: 1 },
+      $push: {
+        onboardedFarms: {
+          farmId: prospect.farmId,
+          onboardDate: new Date()
+        }
+      }
+    });
+
+    res.json(prospect);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 module.exports = router;
