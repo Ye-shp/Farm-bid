@@ -9,7 +9,7 @@ const Prospect = require('../models/Prospect');
 
 // Add this near the top of the file, before your routes
 router.use(cors({
-  origin: ['http://localhost:3000', 'https://your-production-frontend-url.com'],
+  origin: ['http://localhost:3000', 'https://farm-bid.onrender.com'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-student-token']
@@ -65,7 +65,6 @@ router.post('/login', async (req, res) => {
 // Protected route example
 router.get('/customers', studentAuth, async (req, res) => {
   try {
-    // Example customer data - replace with your actual data fetch
     const customers = [
       { _id: 1, name: 'Farm A', location: 'Location A' },
       { _id: 2, name: 'Farm B', location: 'Location B' },
@@ -119,12 +118,16 @@ router.post('/prospects/:id/contact', studentAuth, async (req, res) => {
       return res.status(404).json({ message: 'Prospect not found' });
     }
 
-    if (prospect.assignedStudent.toString() !== req.student._id.toString()) {
+    // Get the student ID from the decoded token
+    const studentId = req.student.id || req.student._id;
+
+    // Check if the prospect is assigned to this student
+    if (!prospect.assignedStudent || prospect.assignedStudent.toString() !== studentId.toString()) {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
     prospect.contactHistory.push({
-      student: req.student._id,
+      student: studentId,
       date: new Date(),
       notes: req.body.notes,
       contactMethod: req.body.contactMethod
@@ -134,6 +137,7 @@ router.post('/prospects/:id/contact', studentAuth, async (req, res) => {
 
     res.json(prospect);
   } catch (err) {
+    console.error('Contact log error:', err);
     res.status(500).json({ message: err.message });
   }
 });
