@@ -55,7 +55,11 @@ router.post('/login', async (req, res) => {
       { expiresIn: '1d' }
     );
 
-    res.json({ token, studentId: student.studentId });
+    // Store both token and studentId
+    res.json({ 
+      token, 
+      studentId: student.studentId 
+    });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ message: error.message });
