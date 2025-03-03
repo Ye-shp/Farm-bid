@@ -104,6 +104,10 @@ const reviewRoute = require('./routes/reviews');
 const farmerRoute = require('./routes/farmerRoute');
 const buyerRoute = require('./routes/buyerRoute');
 
+// For students, remove once we have enough 
+const studentAuth = require('./middleware/studentauth');
+const studentRoute = require('./routes/studentRoute');
+
 // Use routes
 app.use('/api/auth', authRoute);
 app.use('/api/products', productRoute);
@@ -116,7 +120,11 @@ app.use('/api/open-contracts', contractRoute);
 app.use ('/api/transactions', transactionRoute);
 app.use ('/api/search', searchRoute);
 app.use('/api/payments', paymentRoute); 
-app.use('/api/reviews', reviewRoute); // Added reviews route
+app.use('/api/reviews', reviewRoute); 
+
+//students endpoints
+app.use('/api/student/auth', studentAuth);
+app.use('/api/students', studentRoute);
 
 // Use the new farmer and buyer routes
 app.use('/api/farmers', farmerRoute);
