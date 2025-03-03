@@ -67,7 +67,8 @@ app.use(cors({
     'Accept',
     'Access-Control-Request-Method',
     'Access-Control-Request-Headers',
-    'stripe-signature'
+    'stripe-signature',
+    'x-student-token'
   ],
   exposedHeaders: ['Content-Length', 'X-Total-Count'],
   credentials: true,

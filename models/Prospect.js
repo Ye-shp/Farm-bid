@@ -3,12 +3,20 @@ const mongoose = require('mongoose');
 const ProspectSchema = new mongoose.Schema({
   name: { type: String, required: true },
   state: { type: String, required: true },
-  category: { type: String, required: true },
+  category: { 
+    type: String, 
+    default: 'Uncategorized'
+  },
   website: String,
   phone: String,
   email: String,
   address: String,
   notes: String,
+  type: { 
+    type: String, 
+    enum: ['farmer', 'buyer'],
+    required: true 
+  },
   status: {
     type: String,
     enum: ['unclaimed', 'in_progress', 'converted', 'declined'],

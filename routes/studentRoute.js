@@ -1,10 +1,19 @@
 const express = require('express');
 const router = express.Router();
+const cors = require('cors');
 const Student = require('../models/Students');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const studentAuth = require('../middleware/studentAuth');
 const Prospect = require('../models/Prospect');
+
+// Add this near the top of the file, before your routes
+router.use(cors({
+  origin: ['http://localhost:3000', 'https://your-production-frontend-url.com'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-student-token']
+}));
 
 // Student Registration
 router.post('/register', async (req, res) => {
