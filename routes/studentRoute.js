@@ -4,6 +4,7 @@ const Student = require('../models/Students');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const studentAuth = require('../middleware/studentAuth');
+const Prospect = require('../models/Prospect');
 
 // Student Registration
 router.post('/register', async (req, res) => {
@@ -63,6 +64,68 @@ router.get('/customers', studentAuth, async (req, res) => {
     res.json(customers);
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+});
+
+// Get all prospects
+router.get('/prospects', studentAuth, async (req, res) => {
+  try {
+    const prospects = await Prospect.find()
+      .populate('assignedStudent', 'studentId')
+      .populate('contactHistory.student', 'studentId');
+    res.json(prospects);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Claim a prospect
+router.post('/prospects/:id/claim', studentAuth, async (req, res) => {
+  try {
+    const prospect = await Prospect.findById(req.params.id);
+    if (!prospect) {
+      return res.status(404).json({ message: 'Prospect not found' });
+    }
+    
+    if (prospect.status !== 'unclaimed') {
+      return res.status(400).json({ message: 'Prospect is already claimed' });
+    }
+
+    prospect.status = 'in_progress';
+    prospect.assignedStudent = req.student._id;
+    prospect.assignedDate = new Date();
+    await prospect.save();
+
+    res.json(prospect);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Log contact with prospect
+router.post('/prospects/:id/contact', studentAuth, async (req, res) => {
+  try {
+    const prospect = await Prospect.findById(req.params.id);
+    if (!prospect) {
+      return res.status(404).json({ message: 'Prospect not found' });
+    }
+
+    if (prospect.assignedStudent.toString() !== req.student._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    prospect.contactHistory.push({
+      student: req.student._id,
+      date: new Date(),
+      notes: req.body.notes,
+      contactMethod: req.body.contactMethod
+    });
+    prospect.lastContactDate = new Date();
+    await prospect.save();
+
+    res.json(prospect);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
