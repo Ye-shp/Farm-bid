@@ -123,8 +123,7 @@ app.use('/api/payments', paymentRoute);
 app.use('/api/reviews', reviewRoute); 
 
 //students endpoints
-app.use('/api/student/auth', studentAuth);
-app.use('/api/students', studentAuth, studentRoute);
+app.use('/api/students', studentRoute);
 
 // Use the new farmer and buyer routes
 app.use('/api/farmers', farmerRoute);
