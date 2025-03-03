@@ -105,7 +105,7 @@ const farmerRoute = require('./routes/farmerRoute');
 const buyerRoute = require('./routes/buyerRoute');
 
 // For students, remove once we have enough 
-const studentAuth = require('./middleware/studentAuth');
+const studentAuth = require('./middleware/studentauth');
 const studentRoute = require('./routes/studentRoute');
 
 // Use routes
@@ -124,7 +124,7 @@ app.use('/api/reviews', reviewRoute);
 
 //students endpoints
 app.use('/api/student/auth', studentAuth);
-app.use('/api/students', studentRoute);
+app.use('/api/students', studentAuth, studentRoute);
 
 // Use the new farmer and buyer routes
 app.use('/api/farmers', farmerRoute);
