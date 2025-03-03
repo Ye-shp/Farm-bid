@@ -83,10 +83,25 @@ router.get('/customers', studentAuth, async (req, res) => {
 router.get('/prospects', studentAuth, async (req, res) => {
   try {
     const prospects = await Prospect.find()
-      .populate('assignedStudent', 'studentId')
-      .populate('contactHistory.student', 'studentId');
+      .populate({
+        path: 'assignedStudent',
+        select: 'studentId _id'
+      })
+      .populate({
+        path: 'contactHistory.student',
+        select: 'studentId'
+      });
+    
+    // Debug log
+    console.log('Sending prospects:', prospects.map(p => ({
+      id: p._id,
+      type: p.type,
+      assignedStudent: p.assignedStudent
+    })));
+    
     res.json(prospects);
   } catch (err) {
+    console.error('Error fetching prospects:', err);
     res.status(500).json({ message: err.message });
   }
 });
@@ -108,8 +123,15 @@ router.post('/prospects/:id/claim', studentAuth, async (req, res) => {
     prospect.assignedDate = new Date();
     await prospect.save();
 
+    // Populate the assignedStudent before sending response
+    await prospect.populate({
+      path: 'assignedStudent',
+      select: 'studentId _id'
+    });
+
     res.json(prospect);
   } catch (err) {
+    console.error('Error claiming prospect:', err);
     res.status(500).json({ message: err.message });
   }
 });
