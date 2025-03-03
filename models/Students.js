@@ -22,7 +22,21 @@ const studentSchema = new mongoose.Schema({
   farmsWorked: {
     type: Number,
     default: 0
-  }
+  },
+  successfulOnboards: {
+    type: Number,
+    default: 0
+  },
+  onboardedFarms: [{
+    farmId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    onboardDate: {
+      type: Date,
+      default: Date.now
+    }
+  }]
 });
 
 studentSchema.pre('save', async function(next) {
