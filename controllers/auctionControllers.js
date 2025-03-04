@@ -297,7 +297,6 @@ exports.acceptBid = async (req, res) => {
   try {
     const { auctionId } = req.params;
     const { bidId } = req.body;
-
     const io = req.app.get("io");
 
     // Validate auctionId format
@@ -326,8 +325,12 @@ exports.acceptBid = async (req, res) => {
       return res.status(404).json({ message: "Bid not found" });
     }
 
-    // Create payment intent
-    const totalAmount = auction.winningBid.amount * auction.quantity;
+    // Convert values to numbers and calculate total amount
+    const unitPrice = parseFloat(winningBid.amount);
+    const quantity = parseFloat(auction.quantity);
+    const totalAmount = unitPrice * quantity;
+
+    // Create payment intent with the total amount
     const { client_secret, status, id, fees, transaction } =
       await PaymentService.createPaymentIntent({
         amount: totalAmount,
@@ -340,10 +343,12 @@ exports.acceptBid = async (req, res) => {
           productId: auction.product._id.toString(),
           bidId: winningBid._id.toString(),
           deliveryMethod: auction.delivery ? "delivery" : "pickup",
+          quantity: auction.quantity,
+          pricePerUnit: winningBid.amount,
         },
       });
 
-    // Update auction status
+    // Update auction status and record the winning bid
     auction.paymentIntentId = id;
     auction.status = "ended";
     auction.winningBid = {
@@ -354,7 +359,7 @@ exports.acceptBid = async (req, res) => {
     auction.acceptedAt = new Date();
     await auction.save();
 
-    // Create buyer notification (winner)
+    // Create buyer notification
     const buyerNotification = await NotificationModel.create({
       user: winningBid.user._id,
       title: "Bid Accepted",
@@ -374,7 +379,7 @@ exports.acceptBid = async (req, res) => {
       throw new Error("Could not create buyer notification");
     }
 
-    // Create seller notification (auction owner)
+    // Create seller notification
     const sellerNotification = await NotificationModel.create({
       user: auction.product.user._id,
       title: "Auction Completed",
@@ -393,15 +398,9 @@ exports.acceptBid = async (req, res) => {
       throw new Error("Could not create seller notification");
     }
 
-    // Real-time updates for both parties
-    io.to(`user_${winningBid.user._id}`).emit(
-      "notificationUpdate",
-      buyerNotification
-    );
-    io.to(`user_${auction.product.user._id}`).emit(
-      "notificationUpdate",
-      sellerNotification
-    );
+    // Emit real-time notifications to both buyer and seller
+    io.to(`user_${winningBid.user._id}`).emit("notificationUpdate", buyerNotification);
+    io.to(`user_${auction.product.user._id}`).emit("notificationUpdate", sellerNotification);
 
     res.json({
       message: "Bid accepted successfully",
@@ -416,6 +415,7 @@ exports.acceptBid = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
 
 // Create payment intent for auction
 exports.createPaymentIntent = async (req, res) => {
