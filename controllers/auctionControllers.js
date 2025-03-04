@@ -426,7 +426,6 @@ exports.createPaymentIntent = async (req, res) => {
       return res.status(400).json({ message: "Invalid auction ID format" });
     }
 
-    // Retrieve the auction with its associated product and bids
     const auction = await Auction.findById(auctionId)
       .populate({
         path: "product",
@@ -465,9 +464,11 @@ exports.createPaymentIntent = async (req, res) => {
         .json({ message: "Winning bid details could not be found" });
     }
 
-    // Create payment intent
+    // Calculate total amount based on winning bid amount * quantity
+    const totalAmount = auction.winningBid.amount * auction.quantity;
+
     const paymentData = await PaymentService.createPaymentIntent({
-      amount: auction.winningBid.amount,
+      amount: totalAmount, // Changed from auction.winningBid.amount
       sourceType: "auction",
       sourceId: auction._id.toString(),
       buyerId: auction.winningBid.user.toString(),
@@ -477,6 +478,8 @@ exports.createPaymentIntent = async (req, res) => {
         productId: auction.product._id.toString(),
         bidId: matchingBid._id.toString(),
         deliveryMethod: auction.delivery ? "delivery" : "pickup",
+        quantity: auction.quantity,
+        pricePerUnit: auction.winningBid.amount
       },
     });
 
@@ -488,13 +491,10 @@ exports.createPaymentIntent = async (req, res) => {
 
     // Return complete payment intent data
     res.json({
-      client_secret: paymentData.client_secret,
-      status: paymentData.status,
-      sourceId: auction._id.toString(),
-      sellerId: auction.product.user._id.toString(),
-      id: paymentData.id,
-      amount: auction.winningBid.amount,
-      fees: paymentData.fees,
+      ...paymentData,
+      amount: totalAmount,
+      pricePerUnit: auction.winningBid.amount,
+      quantity: auction.quantity
     });
   } catch (error) {
     console.error("Error creating payment intent:", error);
