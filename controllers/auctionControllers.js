@@ -472,7 +472,7 @@ exports.createPaymentIntent = async (req, res) => {
       sourceType: "auction",
       sourceId: auction._id.toString(),
       buyerId: auction.winningBid.user.toString(),
-      sellerId: auction.product.user._id.toString(),
+      sellerId: auction.product.user.id.toString(),
       metadata: {
         auctionId: auction._id.toString(),
         productId: auction.product._id.toString(),
@@ -491,10 +491,13 @@ exports.createPaymentIntent = async (req, res) => {
 
     // Return complete payment intent data
     res.json({
-      ...paymentData,
+      client_secret: paymentData.client_secret,
+      status: paymentData.status,
+      sourceId: auction._id.toString(),
+      sellerId: auction.product.user._id.toString(),
+      id: paymentData.id,
       amount: totalAmount,
-      pricePerUnit: auction.winningBid.amount,
-      quantity: auction.quantity
+      fees: paymentData.fees,
     });
   } catch (error) {
     console.error("Error creating payment intent:", error);
