@@ -327,6 +327,7 @@ exports.acceptBid = async (req, res) => {
     }
 
     // Create payment intent
+    const totalAmount = auction.winningBid.amount * auction.quantity;
     const { client_secret, status, id, fees, transaction } =
       await PaymentService.createPaymentIntent({
         amount: totalAmount,
