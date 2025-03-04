@@ -103,6 +103,19 @@ const TransactionSchema = new mongoose.Schema({
   metadata: {
     type: Map,
     of: String
+  },
+  contractId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Contract',
+    required: function() {
+      return this.sourceType === 'contract';
+    }
+  },
+  fulfillmentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    required: function() {
+      return this.sourceType === 'contract';
+    }
   }
 }, {
   timestamps: true
