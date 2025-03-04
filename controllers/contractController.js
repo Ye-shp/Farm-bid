@@ -3,6 +3,8 @@ const OpenContract = require('../models/OpenContract');
 const User = require('../models/User');
 const {NotificationModel} = require('../models/Notification');
 const twilio = require('twilio');
+const Transaction = require('../models/Transaction');
+const Payout = require('../models/Payout');
 
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -444,5 +446,162 @@ exports.getContractById = async (req, res) => {
   } catch (error) {
     console.error('Error in getContractById:', error);
     res.status(500).json({ error: 'Error fetching contract details', details: error.message });
+  }
+};
+
+// Create payment intent for contract
+exports.createContractPaymentIntent = async (req, res) => {
+  try {
+    const { contractId, fulfillmentId } = req.body;
+    const userId = req.user.id;
+
+    // Get contract and validate
+    const contract = await OpenContract.findById(contractId);
+    if (!contract) {
+      return res.status(404).json({ error: 'Contract not found' });
+    }
+
+    // Verify buyer
+    if (contract.buyer.toString() !== userId) {
+      return res.status(403).json({ error: 'Not authorized to make payment for this contract' });
+    }
+
+    // Get fulfillment
+    const fulfillment = contract.fulfillments.id(fulfillmentId);
+    if (!fulfillment || fulfillment.status !== 'accepted') {
+      return res.status(400).json({ error: 'Invalid or unaccepted fulfillment' });
+    }
+
+    // Calculate total amount including fees
+    const amount = fulfillment.price;
+    const platformFee = amount * 0.05; // 5% platform fee
+    const totalAmount = amount + platformFee + (fulfillment.deliveryFee || 0);
+
+    // Create transaction record
+    const transaction = new Transaction({
+      sourceType: 'contract',
+      sourceId: contractId,
+      buyer: userId,
+      seller: fulfillment.farmer,
+      amount: amount,
+      fees: {
+        platform: platformFee,
+        processing: 0 // Will be updated after Stripe processing
+      },
+      status: 'pending',
+      contractId: contractId,
+      fulfillmentId: fulfillmentId
+    });
+    await transaction.save();
+
+    // Create Stripe payment intent
+    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(totalAmount * 100), // Convert to cents
+      currency: 'usd',
+      metadata: {
+        contractId: contractId,
+        fulfillmentId: fulfillmentId,
+        transactionId: transaction._id.toString()
+      }
+    });
+
+    // Update transaction with payment intent
+    transaction.paymentIntent = {
+      stripeId: paymentIntent.id,
+      status: paymentIntent.status,
+      attempts: [{
+        timestamp: new Date(),
+        status: paymentIntent.status
+      }]
+    };
+    await transaction.save();
+
+    res.json({
+      clientSecret: paymentIntent.client_secret,
+      transactionId: transaction._id
+    });
+
+  } catch (error) {
+    console.error('Error creating payment intent:', error);
+    res.status(500).json({ error: 'Failed to create payment intent' });
+  }
+};
+
+// Handle successful payment
+exports.handleContractPaymentSuccess = async (req, res) => {
+  try {
+    const { paymentIntentId } = req.body;
+
+    // Find transaction by payment intent
+    const transaction = await Transaction.findOne({
+      'paymentIntent.stripeId': paymentIntentId
+    });
+    if (!transaction) {
+      return res.status(404).json({ error: 'Transaction not found' });
+    }
+
+    // Update transaction status
+    await transaction.updatePaymentStatus('succeeded');
+    
+    // Update contract payment status
+    const contract = await OpenContract.findById(transaction.contractId);
+    if (contract) {
+      contract.paymentStatus = 'paid';
+      await contract.save();
+    }
+
+    // Create payout record for farmer
+    const payout = new Payout({
+      transaction: transaction._id,
+      recipient: transaction.seller,
+      amount: transaction.calculatePayoutAmount(),
+      status: 'pending'
+    });
+    await payout.save();
+
+    // Send notifications
+    await createNotification(
+      transaction.seller,
+      `Payment received for contract ${contract.productType}`,
+      'payment_received'
+    );
+
+    res.json({ success: true });
+
+  } catch (error) {
+    console.error('Error handling payment success:', error);
+    res.status(500).json({ error: 'Failed to process payment success' });
+  }
+};
+
+// Handle payment failure
+exports.handleContractPaymentFailure = async (req, res) => {
+  try {
+    const { paymentIntentId, error } = req.body;
+
+    // Find and update transaction
+    const transaction = await Transaction.findOne({
+      'paymentIntent.stripeId': paymentIntentId
+    });
+    if (!transaction) {
+      return res.status(404).json({ error: 'Transaction not found' });
+    }
+
+    // Update transaction status with error
+    await transaction.updatePaymentStatus('failed', error);
+
+    // Notify buyer of failure
+    await createNotification(
+      transaction.buyer,
+      `Payment failed for contract. Please try again.`,
+      'payment_failed'
+    );
+
+    res.json({ success: true });
+
+  } catch (error) {
+    console.error('Error handling payment failure:', error);
+    res.status(500).json({ error: 'Failed to process payment failure' });
   }
 };
