@@ -340,8 +340,6 @@ exports.acceptBid = async (req, res) => {
           productId: auction.product._id.toString(),
           bidId: winningBid._id.toString(),
           deliveryMethod: auction.delivery ? "delivery" : "pickup",
-          quantity: auction.quantity,
-          pricePerUnit: auction.winningBid.amount
         },
       });
 
