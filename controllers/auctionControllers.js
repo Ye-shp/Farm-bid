@@ -329,7 +329,7 @@ exports.acceptBid = async (req, res) => {
     // Create payment intent
     const { client_secret, status, id, fees, transaction } =
       await PaymentService.createPaymentIntent({
-        amount: winningBid.amount,
+        amount: totalAmount,
         sourceType: "auction",
         sourceId: auction._id.toString(),
         buyerId: winningBid.user._id.toString(),
@@ -339,6 +339,8 @@ exports.acceptBid = async (req, res) => {
           productId: auction.product._id.toString(),
           bidId: winningBid._id.toString(),
           deliveryMethod: auction.delivery ? "delivery" : "pickup",
+          quantity: auction.quantity,
+          pricePerUnit: auction.winningBid.amount
         },
       });
 
