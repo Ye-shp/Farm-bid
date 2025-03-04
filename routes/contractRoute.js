@@ -7,7 +7,10 @@ const {
     acceptFulfillment,
     completeFulfillment,
     getUserContracts,
-    getContractById
+    getContractById,
+    createContractPaymentIntent,
+    handleContractPaymentSuccess,
+    handleContractPaymentFailure
 } = require('../controllers/contractController');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
@@ -33,5 +36,14 @@ router.post('/:contractId/fulfillments/:fulfillmentId/accept', authMiddleware, a
 
 // Complete a fulfillment (for farmers)
 router.post('/:contractId/fulfillments/:fulfillmentId/complete', authMiddleware, completeFulfillment);
+
+// Create payment intent for contract
+router.post('/payment-intent', authMiddleware, createContractPaymentIntent);
+
+// Handle contract payment success
+router.post('/payment-success', authMiddleware, handleContractPaymentSuccess);
+
+// Handle contract payment failure 
+router.post('/payment-failure', authMiddleware, handleContractPaymentFailure);
 
 module.exports = router;
