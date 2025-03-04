@@ -168,7 +168,7 @@ exports.createAuction = async (req, res) => {
     }
     if (product.totalQuantity < auctionQuantity) {
       return res.status(404).json({
-        message: "Auction quantity is larger that available quantity",
+        message: "Auction quantity is larger than available quantity",
       });
     }
     product.totalQuantity -= auctionQuantity;
@@ -176,10 +176,11 @@ exports.createAuction = async (req, res) => {
 
     const auction = new Auction({
       product: productId,
+      farmer: req.user.id,         
       startingPrice,
       currentPrice: startingPrice,
-      endTime,
-      auctionQuantity,
+      quantity: auctionQuantity,     
+      startTime: new Date(),         
       minIncrement,
       delivery,
       status: "active",
@@ -192,6 +193,7 @@ exports.createAuction = async (req, res) => {
     res.status(500).json({ message: "Error creating auction" });
   }
 };
+
 
 // Submit a bid
 exports.submitBid = async (req, res) => {
