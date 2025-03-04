@@ -176,12 +176,11 @@ exports.createAuction = async (req, res) => {
 
     const auction = new Auction({
       product: productId,
-      farmer: req.user._id,         // Set the authenticated user's ID as the farmer
+      farmer: req.user.id,         
       startingPrice,
       currentPrice: startingPrice,
-      quantity: auctionQuantity,     // Map auctionQuantity to the quantity field
-      startTime: new Date(),         // Set startTime to the current date/time
-      endTime,
+      quantity: auctionQuantity,     
+      startTime: new Date(),         
       minIncrement,
       delivery,
       status: "active",
