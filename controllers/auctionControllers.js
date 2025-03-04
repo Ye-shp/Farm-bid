@@ -183,6 +183,7 @@ exports.createAuction = async (req, res) => {
       startTime: new Date(),         
       minIncrement,
       delivery,
+      endTime,
       status: "active",
     });
 
