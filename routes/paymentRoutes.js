@@ -9,11 +9,11 @@ const {
     createConnectedAccount 
 } = require('../controllers/payController');
 
-router.post('/add-bank-account', protect, addBankAccount);
-router.post('/request-payout', protect, requestPayout);
-router.get('/balance', protect, getSellerBalance);
-router.get('/transfers', protect, getSellerTransfers);
-router.post('/create-connected-account', protect, createConnectedAccount);
+router.post('/payment/add-bank-account', protect, addBankAccount);
+router.post('/payment/request-payout', protect, requestPayout);
+router.get('/payment/balance', protect, getSellerBalance);
+router.get('/payment/transfers', protect, getSellerTransfers);
+router.post('/payment/create-connected-account', protect, createConnectedAccount);
 
 // ... other routes ...
 
