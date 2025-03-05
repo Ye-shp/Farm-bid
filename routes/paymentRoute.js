@@ -3,6 +3,14 @@ const router = express.Router();
 const PaymentService = require("../services/paymentService");
 const Transaction = require("../models/Transaction");
 const { authMiddleware } = require("../middleware/authMiddleware");
+const { 
+    addBankAccount, 
+    requestPayout,
+    getSellerBalance,
+    getSellerTransfers,
+    createConnectedAccount,
+    createPayoutForAuction 
+} = require('../controllers/payController');
 
 // Create payment intent
 router.post("/create-intent", authMiddleware, async (req, res) => {
@@ -107,5 +115,12 @@ router.get("/transaction/:transactionId", authMiddleware, async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+router.post('/payment/add-bank-account', authMiddleware, addBankAccount);
+router.post('/payment/request-payout', authMiddleware, requestPayout);
+router.get('/payment/balance', authMiddleware, getSellerBalance);
+router.get('/payment/transfers', authMiddleware, getSellerTransfers);
+router.post('/payment/create-connected-account', authMiddleware, createConnectedAccount);
+router.post('/payment/create-payout-for-auction', authMiddleware, createPayoutForAuction);
 
 module.exports = router;
