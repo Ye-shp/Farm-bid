@@ -97,7 +97,7 @@ const notificationRoute = require('./routes/notificationRoute');
 const contractRoute = require('./routes/contractRoute');
 const transactionRoute = require('./routes/transactionRoute');
 const searchRoute = require ('./routes/searchRoute');
-const paymentRoutes = require('./routes/paymentRoute'); 
+const paymentRoute = require('./routes/paymentRoute'); 
 const reviewRoute = require('./routes/reviews'); 
 
 //farmer and buyer routes for location-based matching
@@ -118,7 +118,7 @@ app.use('/api/notifications', notificationRoute);
 app.use('/api/open-contracts', contractRoute); 
 app.use ('/api/transactions', transactionRoute);
 app.use ('/api/search', searchRoute);
-app.use('/api/payments', paymentRoutes); 
+app.use('/api/payments', paymentRoute); 
 app.use('/api/reviews', reviewRoute); 
 
 //students endpoints
