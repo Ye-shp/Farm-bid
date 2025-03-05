@@ -1,7 +1,7 @@
 // models/Payout.js
 const mongoose = require('mongoose');
 
-const PayoutSchema = new mongoose.Schema({
+const payoutSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -16,14 +16,18 @@ const PayoutSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
-  status: {
+  currency: {
     type: String,
-    enum: ['pending', 'processing', 'paid', 'failed'],
-    default: 'pending'
+    default: 'usd'
   },
   stripePayoutId: {
     type: String,
     required: true
+  },
+  status: {
+    type: String,
+    enum: ['pending', 'processing', 'paid', 'failed'],
+    default: 'pending'
   },
   processedAt: {
     type: Date
@@ -42,12 +46,12 @@ const PayoutSchema = new mongoose.Schema({
 });
 
 // Add indexes
-PayoutSchema.index({ userId: 1, status: 1 });
-PayoutSchema.index({ stripePayoutId: 1 }, { unique: true });
-PayoutSchema.index({ transaction: 1 }, { unique: true });
+payoutSchema.index({ userId: 1, status: 1 });
+payoutSchema.index({ stripePayoutId: 1 }, { unique: true });
+payoutSchema.index({ transaction: 1 }, { unique: true });
 
 // Instance methods
-PayoutSchema.methods.updateStatus = async function(status, error = null) {
+payoutSchema.methods.updateStatus = async function(status, error = null) {
   this.status = status;
   if (error) {
     this.error = {
@@ -63,14 +67,14 @@ PayoutSchema.methods.updateStatus = async function(status, error = null) {
 };
 
 // Static methods
-PayoutSchema.statics.findByStripeId = function(stripePayoutId) {
+payoutSchema.statics.findByStripeId = function(stripePayoutId) {
   return this.findOne({ stripePayoutId });
 };
 
-PayoutSchema.statics.findByTransaction = function(transactionId) {
+payoutSchema.statics.findByTransaction = function(transactionId) {
   return this.findOne({ transaction: transactionId });
 };
 
-const Payout = mongoose.model('Payout', PayoutSchema);
+const Payout = mongoose.model('Payout', payoutSchema);
 
-module.exports = { Payout };
+module.exports = Payout;

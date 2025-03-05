@@ -3,6 +3,7 @@ const stripe = require('../config/stripeconfig');
 const Auctions = require('../models/Auction');
 const Payout = require('../models/Payout');
 const User = require('../models/User');
+const Transaction = require('../models/Transaction');
 
 // This one is only for auctions
 const createPaymentIntent = asyncHandler(async (req, res) => {
@@ -129,6 +130,14 @@ const addBankAccount = asyncHandler(async (req, res) => {
     try {
         const { accountId, bankAccountDetails } = req.body;
 
+        // Verify that this connected account belongs to the authenticated user
+        const user = await User.findById(req.user._id);
+        if (!user || user.stripeAccountId !== accountId) {
+            return res.status(403).json({
+                message: 'Not authorized to add bank account to this Stripe account'
+            });
+        }
+
         const bankAccount = await stripe.accounts.createExternalAccount(
             accountId,
             {
@@ -149,8 +158,13 @@ const addBankAccount = asyncHandler(async (req, res) => {
             message: 'Bank account added successfully!',
         });
     } catch (error) {
+        // Provide more detailed error message
+        const message = error.type === 'StripeInvalidRequestError' 
+            ? 'Invalid bank account details'
+            : error.message;
+            
         res.status(400).json({
-            message: error.message,
+            message: message,
         });
     }
 });
@@ -252,6 +266,97 @@ const getSellerBalance = asyncHandler(async (req, res) => {
     res.status(200).json(payouts.data);
   });
 
+const requestPayout = asyncHandler(async (req, res) => {
+    try {
+        const { transactionId } = req.body;
+
+        // Get the authenticated user
+        const user = await User.findById(req.user._id);
+        if (!user || !user.stripeAccountId) {
+            return res.status(400).json({
+                message: 'No connected account found for this user'
+            });
+        }
+
+        // Find the transaction and verify ownership
+        const transaction = await Transaction.findById(transactionId)
+            .populate('buyer')
+            .populate('seller');
+
+        if (!transaction) {
+            return res.status(404).json({
+                message: 'Transaction not found'
+            });
+        }
+
+        if (transaction.seller.toString() !== user._id.toString()) {
+            return res.status(403).json({
+                message: 'Not authorized to request payout for this transaction'
+            });
+        }
+
+        if (transaction.payoutStatus === 'completed') {
+            return res.status(400).json({
+                message: 'Payout has already been processed for this transaction'
+            });
+        }
+
+        // Calculate payout amount (considering platform fees)
+        const platformFee = transaction.amount * 0.05; // 5% platform fee
+        const payoutAmount = transaction.amount - platformFee;
+
+        // Create an instant payout to the default bank account
+        const payout = await stripe.payouts.create({
+            amount: Math.round(payoutAmount * 100), // Convert to cents
+            currency: 'usd',
+            method: 'instant', // Use instant payout if available
+            metadata: {
+                transactionId: transaction._id.toString()
+            }
+        }, {
+            stripeAccount: user.stripeAccountId,
+        });
+
+        // Record the payout in our database
+        const newPayout = new Payout({
+            userId: user._id,
+            transaction: transaction._id,
+            amount: payoutAmount,
+            stripePayoutId: payout.id,
+            status: payout.status,
+            metadata: {
+                platformFee: platformFee.toString(),
+                originalAmount: transaction.amount.toString()
+            }
+        });
+        await newPayout.save();
+
+        // Update transaction status
+        transaction.payoutStatus = 'completed';
+        transaction.payout = newPayout._id;
+        await transaction.save();
+
+        res.status(200).json({
+            success: true,
+            payout: {
+                id: payout.id,
+                amount: payoutAmount,
+                status: payout.status,
+                expectedArrival: payout.arrival_date,
+                transaction: transaction._id
+            }
+        });
+
+    } catch (error) {
+        console.error('Payout error:', error);
+        res.status(400).json({
+            message: error.type === 'StripeInvalidRequestError' 
+                ? 'Unable to process payout. Please verify bank account details.'
+                : error.message
+        });
+    }
+});
+
 module.exports = {
     addBankAccount,
     createPayout,
@@ -261,5 +366,6 @@ module.exports = {
     getPaymentDetails,
     createPayoutForAuction,
     getSellerBalance,
-    getSellerTransfers
+    getSellerTransfers,
+    requestPayout
 };
