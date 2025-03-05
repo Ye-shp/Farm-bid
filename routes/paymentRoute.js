@@ -116,11 +116,11 @@ router.get("/transaction/:transactionId", authMiddleware, async (req, res) => {
   }
 });
 
-router.post('/payment/add-bank-account', authMiddleware, addBankAccount);
-router.post('/payment/request-payout', authMiddleware, requestPayout);
-router.get('/payment/balance', authMiddleware, getSellerBalance);
-router.get('/payment/transfers', authMiddleware, getSellerTransfers);
-router.post('/payment/create-connected-account', authMiddleware, createConnectedAccount);
-router.post('/payment/create-payout-for-auction', authMiddleware, createPayoutForAuction);
+router.post('/create-connected-account', authMiddleware, createConnectedAccount);
+router.post('/add-bank-account', authMiddleware, addBankAccount);
+router.get('/balance', authMiddleware, getSellerBalance);
+router.get('/transfers', authMiddleware, getSellerTransfers);
+router.post('/request-payout', authMiddleware, requestPayout);
+router.post('/create-payout-for-auction', authMiddleware, createPayoutForAuction);
 
 module.exports = router;
