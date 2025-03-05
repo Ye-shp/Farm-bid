@@ -235,36 +235,56 @@ const createPayoutForAuction = asyncHandler(async (req, res) => {
 });
 
 const getSellerBalance = asyncHandler(async (req, res) => {
+  try {
     // Look up the seller using the authenticated user's ID
     const seller = await User.findById(req.user.id);
+    
+    // If no seller or no Stripe account, return early with redirect
     if (!seller || !seller.stripeAccountId) {
-      return res.status(200).json({ redirect: '/create-connected-account', message: 'Seller balance message' });
+      return res.status(200).json({ 
+        redirect: '/create-connected-account',
+        message: 'Connected account required'
+      });
     }
   
-    // Retrieve the connected account's balance from Stripe
+    // Get the balance from Stripe
     const balance = await stripe.balance.retrieve({
       stripeAccount: seller.stripeAccountId,
     });
+
+    // Get external accounts (bank accounts)
+    const accounts = await stripe.accounts.retrieve(seller.stripeAccountId);
+    
+    // Return combined data
+    res.status(200).json({
+      ...balance,
+      external_accounts: accounts.external_accounts,
+      stripeAccountId: seller.stripeAccountId
+    });
+  } catch (error) {
+    res.status(400).json({ 
+      error: error.message,
+      redirect: '/create-connected-account'
+    });
+  }
+});
   
-    res.status(200).json(balance);
-  });
-  
-  // Retrieve the seller's payout history from Stripe
-  const getSellerTransfers = asyncHandler(async (req, res) => {
-    // Look up the seller using the authenticated user's ID
-    const seller = await User.findById(req.user.id);
-    if (!seller || !seller.stripeAccountId) {
-      return res.status(200).json({ redirect: '/create-connected-account', message: 'Seller transfers message ' });
-    }
-  
-    // List payouts (transfers) for the connected account
-    const payouts = await stripe.payouts.list(
-      { limit: 100 },
-      { stripeAccount: seller.stripeAccountId }
-    );
-  
-    res.status(200).json(payouts.data);
-  });
+// Retrieve the seller's payout history from Stripe
+const getSellerTransfers = asyncHandler(async (req, res) => {
+  // Look up the seller using the authenticated user's ID
+  const seller = await User.findById(req.user.id);
+  if (!seller || !seller.stripeAccountId) {
+    return res.status(200).json({ redirect: '/create-connected-account', message: 'Seller transfers message ' });
+  }
+
+  // List payouts (transfers) for the connected account
+  const payouts = await stripe.payouts.list(
+    { limit: 100 },
+    { stripeAccount: seller.stripeAccountId }
+  );
+
+  res.status(200).json(payouts.data);
+});
 
 const requestPayout = asyncHandler(async (req, res) => {
     try {
