@@ -85,46 +85,55 @@ const getPaymentDetails = asyncHandler(async (req, res) => {
 });
 
 const createConnectedAccount = asyncHandler(async (req, res) => {
-    try {
-      const { email } = req.body;
-      
-      // Retrieve the authenticated seller using req.user._id for consistency
-      const seller = await User.findById(req.user._id);
-      if (!seller) {
-        return res.status(404).json({ message: 'User not found' });
-      }
-      
-      // If a connected account already exists, return it
-      if (seller.stripeAccountId) {
-        return res.status(200).json({
-          accountId: seller.stripeAccountId,
-          message: 'Connected account already exists',
-        });
-      }
-      
-      // Create a new connected account using the provided email (or the seller's email)
-      const account = await stripe.accounts.create({
-        type: 'express',
-        country: 'US',
-        email: email || seller.email,
-        capabilities: {
-          card_payments: { requested: true },
-          transfers: { requested: true },
-        },
-      });
-
-      // Save the connected account ID to the seller's record
-      seller.stripeAccountId = account.id;
-      await seller.save();
-      
-      res.status(200).json({
-        accountId: account.id,
-        message: 'Connected account created and saved successfully!',
-      });
-    } catch (error) {
-      res.status(400).json({ message: error.message });
+  try {
+    const { email, businessName, firstName, lastName } = req.body;
+    
+    // Get the authenticated user
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
     }
-  });
+
+    // Check if user already has a connected account
+    if (user.stripeAccountId) {
+      return res.status(200).json({
+        accountId: user.stripeAccountId,
+        message: 'Connected account already exists'
+      });
+    }
+
+    // Create Stripe Connect account
+    const account = await stripe.accounts.create({
+      type: 'express',
+      country: 'US',
+      email: email || user.email,
+      business_type: 'individual',
+      capabilities: {
+        card_payments: { requested: true },
+        transfers: { requested: true }
+      },
+      individual: {
+        first_name: firstName || user.firstName,
+        last_name: lastName || user.lastName,
+        email: email || user.email
+      }
+    });
+
+    // Update user with Stripe account ID
+    user.stripeAccountId = account.id;
+    await user.save();
+
+    res.status(200).json({
+      accountId: account.id,
+      message: 'Connected account created successfully'
+    });
+  } catch (error) {
+    console.error('Create connected account error:', error);
+    res.status(400).json({ 
+      error: error.message || 'Failed to create connected account'
+    });
+  }
+});
 
 const addBankAccount = asyncHandler(async (req, res) => {
     try {
