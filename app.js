@@ -93,8 +93,7 @@ const productRoute = require('./routes/productRoute');
 const auctionRoute = require('./routes/auctionRoute');
 const blogRoute = require('./routes/blogRoute');
 const userRoute = require('./routes/userRoute')
-const notificationRoute = require('./routes/notificationRoute')
-const payoutRoute = require('./routes/payoutRoute');
+const notificationRoute = require('./routes/notificationRoute');
 const contractRoute = require('./routes/contractRoute');
 const transactionRoute = require('./routes/transactionRoute');
 const searchRoute = require ('./routes/searchRoute');
@@ -116,7 +115,6 @@ app.use('/api/auctions', auctionRoute);
 app.use('/api/blogs', blogRoute);
 app.use('/api/users', userRoute);
 app.use('/api/notifications', notificationRoute);
-app.use('/api/payout', payoutRoute);
 app.use('/api/open-contracts', contractRoute); 
 app.use ('/api/transactions', transactionRoute);
 app.use ('/api/search', searchRoute);
