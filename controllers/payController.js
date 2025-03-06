@@ -92,7 +92,17 @@ const createConnectedAccount = asyncHandler(async (req, res) => {
       headers: req.headers
     });
     
-    const { email, businessName, firstName, lastName } = req.body;
+    const { 
+      email, 
+      firstName, 
+      lastName, 
+      phone,
+      dob,
+      address,
+      ssn_last_4,
+      business_profile,
+      tos_acceptance
+    } = req.body;
     
     // Get the authenticated user - handle both id and _id cases
     const userId = req.user.id || req.user._id;
@@ -113,7 +123,7 @@ const createConnectedAccount = asyncHandler(async (req, res) => {
       });
     }
 
-    // Create Stripe Connect account
+    // Create Stripe Connect account with all required fields
     const account = await stripe.accounts.create({
       type: 'express',
       country: 'US',
@@ -126,7 +136,34 @@ const createConnectedAccount = asyncHandler(async (req, res) => {
       individual: {
         first_name: firstName || user.firstName,
         last_name: lastName || user.lastName,
-        email: email || user.email
+        email: email || user.email,
+        phone: phone,
+        dob: {
+          day: dob.day,
+          month: dob.month,
+          year: dob.year
+        },
+        address: {
+          line1: address.line1,
+          city: address.city,
+          state: address.state,
+          postal_code: address.postal_code,
+          country: 'US'
+        },
+        ssn_last_4: ssn_last_4
+      },
+      business_profile: {
+        url: business_profile.url,
+        mcc: business_profile.mcc || '5812', // Default to restaurants/food service if not provided
+      },
+      tos_acceptance: {
+        date: tos_acceptance.date,
+        ip: tos_acceptance.ip
+      },
+      settings: {
+        payments: {
+          statement_descriptor: `${firstName} ${lastName}`.substring(0, 22) // Max 22 chars
+        }
       }
     });
 
@@ -134,8 +171,17 @@ const createConnectedAccount = asyncHandler(async (req, res) => {
     user.stripeAccountId = account.id;
     await user.save();
 
+    // Create an account link for the user to complete verification if needed
+    const accountLink = await stripe.accountLinks.create({
+      account: account.id,
+      refresh_url: `${process.env.FRONTEND_URL}/dashboard/payouts`,
+      return_url: `${process.env.FRONTEND_URL}/dashboard/payouts`,
+      type: 'account_onboarding',
+    });
+
     res.status(200).json({
       accountId: account.id,
+      accountLink: accountLink.url,
       message: 'Connected account created successfully'
     });
   } catch (error) {
@@ -149,9 +195,19 @@ const createConnectedAccount = asyncHandler(async (req, res) => {
 const addBankAccount = asyncHandler(async (req, res) => {
     try {
         const { accountId, bankAccountDetails } = req.body;
+        console.log('Add bank account request:', {
+            receivedAccountId: accountId,
+            bankDetails: bankAccountDetails
+        });
 
         // Verify that this connected account belongs to the authenticated user
         const user = await User.findById(req.user._id);
+        console.log('User stripe details:', {
+            userId: user?._id,
+            userStripeAccountId: user?.stripeAccountId,
+            matches: user?.stripeAccountId === accountId
+        });
+
         if (!user || user.stripeAccountId !== accountId) {
             return res.status(403).json({
                 message: 'Not authorized to add bank account to this Stripe account'
