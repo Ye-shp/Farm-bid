@@ -12,6 +12,9 @@ const {
     createPayoutForAuction 
 } = require('../controllers/payController');
 
+// Register the connected account route first
+router.post('/create-connected-account', authMiddleware, createConnectedAccount);
+
 // Create payment intent
 router.post("/create-intent", authMiddleware, async (req, res) => {
   try {
@@ -116,7 +119,6 @@ router.get("/transaction/:transactionId", authMiddleware, async (req, res) => {
   }
 });
 
-router.post('/create-connected-account', authMiddleware, createConnectedAccount);
 router.post('/add-bank-account', authMiddleware, addBankAccount);
 router.get('/balance', authMiddleware, getSellerBalance);
 router.get('/transfers', authMiddleware, getSellerTransfers);
