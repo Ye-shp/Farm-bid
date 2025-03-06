@@ -86,10 +86,21 @@ const getPaymentDetails = asyncHandler(async (req, res) => {
 
 const createConnectedAccount = asyncHandler(async (req, res) => {
   try {
+    console.log('Create connected account request received:', {
+      body: req.body,
+      user: req.user,
+      headers: req.headers
+    });
+    
     const { email, businessName, firstName, lastName } = req.body;
     
-    // Get the authenticated user
-    const user = await User.findById(req.user.id);
+    // Get the authenticated user - handle both id and _id cases
+    const userId = req.user.id || req.user._id;
+    console.log('Using userId:', userId);
+    
+    const user = await User.findById(userId);
+    console.log('Found user:', user ? 'yes' : 'no');
+    
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
