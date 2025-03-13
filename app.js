@@ -54,6 +54,7 @@ io.on('connection', (socket) => {
 
 // Make io accessible to other modules
 app.set('io', io);
+global.io = io; // Make io globally available
 
 app.use(express.json());
 app.use(cors({

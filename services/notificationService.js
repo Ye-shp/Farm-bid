@@ -24,10 +24,15 @@ const sendSms = async (phoneNumber, message) => {
 
 // Send in-app notification via socket.io
 const sendInApp = (io, userId, notification) => {
+  console.log(`Attempting to send in-app notification to user ${userId}`);
   if (io) {
+    console.log(`Socket.io instance found, sending to room: user_${userId}`);
     io.to(`user_${userId}`).emit('notification', notification);
+    return { success: true };
+  } else {
+    console.log('No Socket.io instance available');
+    return { success: false, error: 'No Socket.io instance available' };
   }
-  return { success: true };
 };
 
 // Map notification types to SendGrid email template types
@@ -38,7 +43,8 @@ const getEmailTemplateType = (notificationType) => {
     [NOTIFICATION_TYPES.AUCTION_WON]: 'AUCTION_WON',
     [NOTIFICATION_TYPES.AUCTION_BID_OUTBID]: 'AUCTION_OUTBID',
     [NOTIFICATION_TYPES.RECURRING_PAYMENT_REMINDER]: 'RECURRING_PAYMENT_REMINDER',
-    [NOTIFICATION_TYPES.CONTRACT_ACCEPTED]: 'CONTRACT_ACCEPTED'
+    [NOTIFICATION_TYPES.CONTRACT_ACCEPTED]: 'CONTRACT_ACCEPTED',
+    [NOTIFICATION_TYPES.CONTRACT_FULFILLMENT_OFFER]: 'CONTRACT_FULFILLMENT_OFFER'
   };
   
   return templateMap[notificationType] || 'DEFAULT';
@@ -99,6 +105,17 @@ const getEmailTemplateData = (notification) => {
         paymentDate: notification.metadata?.paymentDate || ''
       };
       
+    case NOTIFICATION_TYPES.CONTRACT_FULFILLMENT_OFFER:
+      return {
+        ...baseData,
+        contractTitle: notification.metadata?.contractTitle || 'Contract',
+        contractId: notification.reference?.id || '',
+        farmerName: notification.metadata?.farmerName || 'Farmer',
+        price: notification.metadata?.price || 0,
+        productType: notification.metadata?.productType || 'Product',
+        fulfillmentId: notification.metadata?.fulfillmentId || ''
+      };
+      
     case NOTIFICATION_TYPES.CONTRACT_ACCEPTED:
       return {
         ...baseData,
@@ -116,8 +133,10 @@ const getEmailTemplateData = (notification) => {
 
 // Unified notification delivery system
 const deliverNotification = async (notification, io) => {
+  console.log(`Delivering notification ${notification._id} to user ${notification.user}`);
+  
   const user = await User.findById(notification.user)
-    .select('phoneNumber email notificationPreferences')
+    .select('phone email notificationPreferences')
     .lean();
 
   if (!user) {
@@ -134,31 +153,39 @@ const deliverNotification = async (notification, io) => {
   
   // Always send in-app notifications
   const channels = [DELIVERY_CHANNELS.IN_APP];
+  console.log(`Adding in-app channel for notification ${notification._id}`);
   
   // For high-priority notifications, add email regardless of user preferences
   if (isHighPriority && user.email) {
+    console.log(`Adding email channel for high-priority notification ${notification._id}`);
     channels.push(DELIVERY_CHANNELS.EMAIL);
   } 
   // For other notifications, respect user preferences
   else if (userPrefs.emailEnabled && user.email) {
+    console.log(`Adding email channel based on user preferences for notification ${notification._id}`);
     channels.push(DELIVERY_CHANNELS.EMAIL);
   }
   
   // For urgent notifications, add SMS regardless of user preferences
-  if (notification.priority === PRIORITY_LEVELS.URGENT && user.phoneNumber) {
+  if (notification.priority === PRIORITY_LEVELS.URGENT && user.phone) {
+    console.log(`Adding SMS channel for urgent notification ${notification._id}`);
     channels.push(DELIVERY_CHANNELS.SMS);
   }
   // For other notifications, respect user preferences
-  else if (userPrefs.smsEnabled && user.phoneNumber) {
+  else if (userPrefs.smsEnabled && user.phone) {
+    console.log(`Adding SMS channel based on user preferences for notification ${notification._id}`);
     channels.push(DELIVERY_CHANNELS.SMS);
   }
+
+  console.log(`Delivering notification ${notification._id} through channels: ${channels.join(', ')}`);
 
   for (const channel of channels) {
     let result;
     try {
+      console.log(`Attempting to deliver notification ${notification._id} via ${channel}`);
       switch (channel) {
         case DELIVERY_CHANNELS.SMS:
-          result = await sendSms(user.phoneNumber, notification.message);
+          result = await sendSms(user.phone, notification.message);
           break;
 
         case DELIVERY_CHANNELS.EMAIL:
@@ -207,17 +234,32 @@ const deliverNotification = async (notification, io) => {
 
 // Create and send notification
 const createAndSendNotification = async (userId, notificationData, io) => {
-  const notification = await NotificationModel.create({
-    user: userId,
-    channels: notificationData.channels || [DELIVERY_CHANNELS.IN_APP],
-    ...notificationData,
-    status: {
-      read: false,
-      deliveredChannels: []
-    }
-  });
+  console.log(`Creating notification for user ${userId} of type ${notificationData.type}`);
   
-  return deliverNotification(notification, io);
+  try {
+    const notification = await NotificationModel.create({
+      user: userId,
+      channels: notificationData.channels || [DELIVERY_CHANNELS.IN_APP],
+      ...notificationData,
+      status: {
+        read: false,
+        deliveredChannels: []
+      }
+    });
+    
+    console.log(`Notification created with ID ${notification._id}, now delivering...`);
+    
+    // Check if io is available
+    if (!io) {
+      console.log('No io instance provided, using global.io if available');
+      io = global.io;
+    }
+    
+    return deliverNotification(notification, io);
+  } catch (error) {
+    console.error('Error in createAndSendNotification:', error);
+    return null;
+  }
 };
 
 // Send notification to a user

@@ -6,6 +6,7 @@ const twilio = require('twilio');
 const Transaction = require('../models/Transaction');
 const Payout = require('../models/Payout');
 const { NOTIFICATION_TYPES } = require('../constants/notificationTypes');
+const notificationService = require('../services/notificationService');
 
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -16,14 +17,41 @@ const client = twilio(accountSid, authToken);
 // Helper function to create notifications
 async function createNotification(userId, message, type, metadata = {}) {
   try {
-    const notification = new NotificationModel({
+    // Prepare notification data
+    const notificationData = {
       user: userId,
+      title: type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' '),
       message,
       type,
-      metadata
-    });
-    await notification.save();
-    return notification;
+      category: type.split('_')[0].toUpperCase(),
+      metadata,
+      priority: type === NOTIFICATION_TYPES.CONTRACT_FULFILLMENT_OFFER ? 'high' : 'medium'
+    };
+
+    // Add reference if provided
+    if (metadata.referenceId) {
+      notificationData.reference = {
+        model: 'OpenContract',
+        id: metadata.referenceId
+      };
+    }
+
+    // Add action if it's a contract notification
+    if (type.startsWith('contract_') && metadata.referenceId) {
+      notificationData.action = {
+        type: 'link',
+        text: 'View Contract',
+        url: `/contracts/${metadata.referenceId}`
+      };
+    }
+
+    // Use the notification service to create and deliver the notification
+    // Pass the io object from the request if available
+    return await notificationService.createAndSendNotification(
+      userId,
+      notificationData,
+      global.io // Use the global io object
+    );
   } catch (error) {
     console.error('Error creating notification:', error);
     return null;
@@ -284,14 +312,21 @@ exports.fulfillOpenContract = async (req, res) => {
 
     await contract.save();
 
+    // Get farmer details for the notification
+    const farmer = await User.findById(farmerId);
+
     // Send notification to buyer
     await createNotification(
       contract.buyer,
-      `New fulfillment offer received for contract: ${contract.productType}`,
+      `${farmer ? farmer.username : 'A farmer'} has offered to fulfill your contract for ${contract.quantity} units of ${contract.productType} at $${price} per unit.`,
       NOTIFICATION_TYPES.CONTRACT_FULFILLMENT_OFFER,
       {
         referenceId: contract._id,
-        fulfillmentId: contract.fulfillments[contract.fulfillments.length - 1]._id
+        fulfillmentId: contract.fulfillments[contract.fulfillments.length - 1]._id,
+        contractTitle: `${contract.quantity} units of ${contract.productType}`,
+        farmerName: farmer ? farmer.username : 'A farmer',
+        price: price,
+        productType: contract.productType
       }
     );
 
@@ -795,5 +830,89 @@ exports.notifyRecurringContracts = async (req, res) => {
   } catch (error) {
     console.error('Error sending recurring contract notifications:', error);
     res.status(500).json({ error: 'Failed to send recurring contract notifications' });
+  }
+};
+
+// Test notification for contract fulfillment offer
+exports.testFulfillmentNotification = async (req, res) => {
+  try {
+    const { contractId } = req.params;
+    
+    const contract = await OpenContract.findById(contractId);
+    if (!contract) {
+      return res.status(404).json({ error: 'Contract not found' });
+    }
+    
+    // Get farmer details
+    const farmer = await User.findById(req.user.id);
+    const testPrice = 100;
+    
+    // Send test notification to buyer
+    await createNotification(
+      contract.buyer,
+      `TEST: ${farmer ? farmer.username : 'Test Farmer'} has offered to fulfill your contract for ${contract.quantity} units of ${contract.productType} at $${testPrice} per unit.`,
+      NOTIFICATION_TYPES.CONTRACT_FULFILLMENT_OFFER,
+      {
+        referenceId: contract._id,
+        fulfillmentId: contract.fulfillments.length > 0 ? contract.fulfillments[0]._id : null,
+        contractTitle: `${contract.quantity} units of ${contract.productType}`,
+        farmerName: farmer ? farmer.username : 'Test Farmer',
+        price: testPrice,
+        productType: contract.productType
+      }
+    );
+    
+    res.json({ success: true, message: 'Test notification sent' });
+  } catch (error) {
+    console.error('Error sending test notification:', error);
+    res.status(500).json({ error: 'Failed to send test notification' });
+  }
+};
+
+// Debug notification system
+exports.debugNotificationSystem = async (req, res) => {
+  try {
+    // Check if io is available
+    const ioStatus = {
+      globalIoAvailable: !!global.io,
+      reqAppIoAvailable: !!(req.app && req.app.get('io'))
+    };
+    
+    // Check if the user exists
+    const user = await User.findById(req.user.id);
+    const userStatus = {
+      userFound: !!user,
+      email: user ? user.email : null,
+      phone: user ? user.phone : null,
+      notificationPreferences: user ? user.notificationPreferences : null
+    };
+    
+    // Check recent notifications
+    const recentNotifications = await NotificationModel.find({ user: req.user.id })
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .lean();
+    
+    // Send a test notification
+    const testNotification = await createNotification(
+      req.user.id,
+      `This is a debug test notification sent at ${new Date().toLocaleTimeString()}`,
+      NOTIFICATION_TYPES.SYSTEM_MAINTENANCE,
+      {
+        isDebugTest: true,
+        timestamp: new Date().toISOString()
+      }
+    );
+    
+    res.json({
+      ioStatus,
+      userStatus,
+      recentNotifications,
+      testNotification,
+      message: 'Debug information collected and test notification sent'
+    });
+  } catch (error) {
+    console.error('Error in debugNotificationSystem:', error);
+    res.status(500).json({ error: 'Failed to debug notification system', details: error.message });
   }
 };
