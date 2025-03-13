@@ -18,6 +18,7 @@ const HIGH_PRIORITY_NOTIFICATIONS = [
   NOTIFICATION_TYPES.AUCTION_WON,
   NOTIFICATION_TYPES.PAYMENT_SUCCESSFUL,
   NOTIFICATION_TYPES.CONTRACT_ACCEPTED,
+  NOTIFICATION_TYPES.CONTRACT_FULFILLMENT_OFFER,
   NOTIFICATION_TYPES.RECURRING_PAYMENT_REMINDER
 ];
 
@@ -111,15 +112,14 @@ const NOTIFICATION_CONFIG = {
   },
 
   // Contract Notifications
-  [NOTIFICATION_TYPES.CONTRACT_ACCEPTED]: {
-    channels: [DELIVERY_CHANNELS.IN_APP, DELIVERY_CHANNELS.EMAIL],
-    priority: PRIORITY_LEVELS.HIGH,
+  [NOTIFICATION_TYPES.CONTRACT_CREATED]: {
+    channels: [DELIVERY_CHANNELS.IN_APP],
+    priority: PRIORITY_LEVELS.MEDIUM,
     template: async (referenceId) => {
-      const contract = await OpenContract.findById(referenceId)
-        .populate('seller', 'username');
+      const contract = await OpenContract.findById(referenceId);
       return {
-        title: 'Contract Accepted',
-        message: `Your contract for ${contract.productType} has been accepted by ${contract.seller.username}.`,
+        title: 'Contract Created',
+        message: `Your contract for ${contract.quantity} units of ${contract.productType} has been created successfully.`,
         action: {
           type: 'link',
           text: 'View Contract',
@@ -129,15 +129,115 @@ const NOTIFICATION_CONFIG = {
     }
   },
 
-  [NOTIFICATION_TYPES.RECURRING_PAYMENT_REMINDER]: {
+  [NOTIFICATION_TYPES.CONTRACT_FULFILLMENT_OFFER]: {
     channels: [DELIVERY_CHANNELS.IN_APP, DELIVERY_CHANNELS.EMAIL],
     priority: PRIORITY_LEVELS.HIGH,
     template: async (referenceId, data) => {
       const contract = await OpenContract.findById(referenceId);
-      const daysUntilPayment = data?.daysUntilPayment || 3;
+      const fulfillment = contract.fulfillments.id(data?.fulfillmentId);
+      const farmer = await User.findById(fulfillment.farmer);
+      
       return {
-        title: 'Upcoming Recurring Payment',
-        message: `Your recurring payment of $${contract.recurringDetails.amount.toFixed(2)} for ${contract.productType} will be processed in ${daysUntilPayment} days.`,
+        title: 'New Fulfillment Offer',
+        message: `${farmer.username} has offered to fulfill your contract for ${contract.productType} at $${fulfillment.price} per unit.`,
+        action: {
+          type: 'link',
+          text: 'Review Offer',
+          url: `/contracts/${referenceId}`
+        }
+      };
+    }
+  },
+
+  [NOTIFICATION_TYPES.CONTRACT_ACCEPTED]: {
+    channels: [DELIVERY_CHANNELS.IN_APP, DELIVERY_CHANNELS.EMAIL, DELIVERY_CHANNELS.SMS],
+    priority: PRIORITY_LEVELS.HIGH,
+    template: async (referenceId, data) => {
+      const contract = await OpenContract.findById(referenceId);
+      const fulfillment = contract.fulfillments.id(data?.fulfillmentId);
+      const buyer = await User.findById(contract.buyer);
+      
+      return {
+        title: 'Contract Offer Accepted',
+        message: `${buyer.username} has accepted your offer to fulfill their contract for ${contract.productType}.`,
+        action: {
+          type: 'link',
+          text: 'View Contract',
+          url: `/contracts/${referenceId}`
+        }
+      };
+    }
+  },
+
+  [NOTIFICATION_TYPES.CONTRACT_COMPLETED]: {
+    channels: [DELIVERY_CHANNELS.IN_APP, DELIVERY_CHANNELS.EMAIL],
+    priority: PRIORITY_LEVELS.MEDIUM,
+    template: async (referenceId) => {
+      const contract = await OpenContract.findById(referenceId)
+        .populate('winningFulfillment.farmer', 'username');
+      
+      return {
+        title: 'Contract Completed',
+        message: `Your contract for ${contract.productType} has been marked as completed by ${contract.winningFulfillment.farmer.username}.`,
+        action: {
+          type: 'link',
+          text: 'View Contract',
+          url: `/contracts/${referenceId}`
+        }
+      };
+    }
+  },
+
+  [NOTIFICATION_TYPES.CONTRACT_CANCELLED]: {
+    channels: [DELIVERY_CHANNELS.IN_APP, DELIVERY_CHANNELS.EMAIL],
+    priority: PRIORITY_LEVELS.MEDIUM,
+    template: async (referenceId, data) => {
+      const contract = await OpenContract.findById(referenceId);
+      const cancelledBy = data?.cancelledBy ? await User.findById(data.cancelledBy) : null;
+      
+      return {
+        title: 'Contract Cancelled',
+        message: cancelledBy 
+          ? `Your contract for ${contract.productType} has been cancelled by ${cancelledBy.username}.`
+          : `Your contract for ${contract.productType} has been cancelled.`,
+        action: {
+          type: 'link',
+          text: 'View Details',
+          url: `/contracts/${referenceId}`
+        }
+      };
+    }
+  },
+
+  [NOTIFICATION_TYPES.CONTRACT_EXPIRING]: {
+    channels: [DELIVERY_CHANNELS.IN_APP, DELIVERY_CHANNELS.EMAIL],
+    priority: PRIORITY_LEVELS.MEDIUM,
+    template: async (referenceId, data) => {
+      const contract = await OpenContract.findById(referenceId);
+      const hoursRemaining = data?.hoursRemaining || 24;
+      
+      return {
+        title: 'Contract Expiring Soon',
+        message: `Your contract for ${contract.productType} will expire in ${hoursRemaining} hours.`,
+        action: {
+          type: 'link',
+          text: 'View Contract',
+          url: `/contracts/${referenceId}`
+        }
+      };
+    }
+  },
+
+  [NOTIFICATION_TYPES.CONTRACT_RECURRING_REMINDER]: {
+    channels: [DELIVERY_CHANNELS.IN_APP, DELIVERY_CHANNELS.EMAIL],
+    priority: PRIORITY_LEVELS.HIGH,
+    template: async (referenceId, data) => {
+      const contract = await OpenContract.findById(referenceId);
+      const daysUntilDelivery = data?.daysUntilDelivery || 3;
+      
+      return {
+        title: 'Upcoming Recurring Contract Delivery',
+        message: `Your recurring contract for ${contract.productType} has a scheduled delivery in ${daysUntilDelivery} days.`,
         action: {
           type: 'link',
           text: 'View Contract',
