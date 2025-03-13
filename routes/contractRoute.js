@@ -12,7 +12,9 @@ const {
     handleContractPaymentSuccess,
     handleContractPaymentFailure,
     notifyExpiringContracts,
-    notifyRecurringContracts
+    notifyRecurringContracts,
+    testFulfillmentNotification,
+    debugNotificationSystem
 } = require('../controllers/contractController');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
@@ -51,5 +53,11 @@ router.post('/payment-failure', authMiddleware, handleContractPaymentFailure);
 // Notification endpoints
 router.post('/notify-expiring', authMiddleware, notifyExpiringContracts);
 router.post('/notify-recurring', authMiddleware, notifyRecurringContracts);
+
+// Test endpoints (only in development)
+if (process.env.NODE_ENV !== 'production') {
+  router.post('/:contractId/test-fulfillment-notification', authMiddleware, testFulfillmentNotification);
+  router.get('/debug-notification-system', authMiddleware, debugNotificationSystem);
+}
 
 module.exports = router;
