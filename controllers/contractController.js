@@ -15,8 +15,10 @@ const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
 const client = twilio(accountSid, authToken);
 
 // Helper function to create notifications
-async function createNotification(userId, message, type, metadata = {}) {
+async function createNotification(userId, message, type, metadata = {}, req = null) {
   try {
+    console.log(`Creating contract notification for user ${userId} of type ${type}`);
+    
     // Prepare notification data
     const notificationData = {
       user: userId,
@@ -45,13 +47,37 @@ async function createNotification(userId, message, type, metadata = {}) {
       };
     }
 
-    // Use the notification service to create and deliver the notification
-    // Pass the io object from the request if available
-    return await notificationService.createAndSendNotification(
-      userId,
-      notificationData,
-      global.io // Use the global io object
-    );
+    // First, create the notification in the database
+    const notification = await NotificationModel.create(notificationData);
+    
+    if (!notification) {
+      throw new Error('Failed to create notification in database');
+    }
+    
+    console.log(`Notification created with ID: ${notification._id}`);
+    
+    // Get the socket.io instance
+    let io;
+    if (req && req.app) {
+      io = req.app.get('io');
+      console.log('Using request-specific io instance');
+    } else {
+      io = global.io;
+      console.log('Using global io instance');
+    }
+    
+    // Emit the notification via socket.io
+    if (io) {
+      console.log(`Emitting notification to user_${userId}`);
+      io.to(`user_${userId}`).emit('notificationUpdate', notification);
+    } else {
+      console.warn('No socket.io instance available, notification will not be delivered in real-time');
+    }
+    
+    // Also use the notification service for additional delivery channels (email, SMS)
+    await notificationService.deliverNotification(notification, io);
+    
+    return notification;
   } catch (error) {
     console.error('Error creating notification:', error);
     return null;
@@ -59,7 +85,7 @@ async function createNotification(userId, message, type, metadata = {}) {
 }
 
 // Helper function to notify farmers about new contracts
-async function notifyRelevantFarmers(contract) {
+async function notifyRelevantFarmers(contract, req = null) {
   try {
     // Find farmers who have products matching the contract requirements
     const relevantFarmers = await User.find({
@@ -67,6 +93,8 @@ async function notifyRelevantFarmers(contract) {
       'products.name': contract.productType,
     });
 
+    console.log(`Found ${relevantFarmers.length} relevant farmers for contract ${contract._id}`);
+    
     const notifications = [];
     for (const farmer of relevantFarmers) {
       if (!contract.notifiedFarmers.includes(farmer._id)) {
@@ -74,7 +102,14 @@ async function notifyRelevantFarmers(contract) {
         const notification = await createNotification(
           farmer._id,
           `New contract available for ${contract.productType}. Quantity: ${contract.quantity}, Max Price: $${contract.maxPrice}`,
-          'contract'
+          NOTIFICATION_TYPES.CONTRACT_CREATED,
+          {
+            referenceId: contract._id,
+            productType: contract.productType,
+            quantity: contract.quantity,
+            maxPrice: contract.maxPrice
+          },
+          req
         );
 
         // Send SMS if phone number is available
@@ -249,13 +284,17 @@ exports.createOpenContract = async (req, res) => {
     await contract.save();
 
     // Notify relevant farmers
-    await notifyRelevantFarmers(contract);
+    await notifyRelevantFarmers(contract, req);
 
     // Create notification for buyer
     await createNotification(
       req.user.id,
       `Your contract for ${quantity} units of ${productType} has been created successfully.`,
-      NOTIFICATION_TYPES.CONTRACT_CREATED
+      NOTIFICATION_TYPES.CONTRACT_CREATED,
+      {
+        referenceId: contract._id
+      },
+      req
     );
 
     res.status(201).json({
@@ -354,7 +393,8 @@ exports.fulfillOpenContract = async (req, res) => {
         farmerName: farmer ? farmer.username : 'A farmer',
         price: price,
         productType: contract.productType
-      }
+      },
+      req
     );
 
     res.json(contract);
@@ -415,7 +455,8 @@ exports.acceptFulfillment = async (req, res) => {
         {
           referenceId: contract._id,
           fulfillmentId: fulfillmentId
-        }
+        },
+        req
       );
 
       // Send SMS if phone number is available
@@ -483,7 +524,8 @@ exports.completeFulfillment = async (req, res) => {
       NOTIFICATION_TYPES.CONTRACT_COMPLETED,
       {
         referenceId: contract._id
-      }
+      },
+      req
     );
 
     res.json(contract);
@@ -775,6 +817,7 @@ exports.notifyExpiringContracts = async (req, res) => {
       endTime: { $gt: now, $lt: in24Hours }
     });
     
+    console.log(`Found ${expiringContracts.length} contracts expiring in the next 24 hours`);
     let notificationCount = 0;
     
     for (const contract of expiringContracts) {
@@ -789,12 +832,13 @@ exports.notifyExpiringContracts = async (req, res) => {
         {
           referenceId: contract._id,
           hoursRemaining
-        }
+        },
+        req
       );
       
       notificationCount++;
     }
-    
+  
     res.json({ 
       success: true, 
       message: `Sent ${notificationCount} expiration notifications` 
@@ -818,6 +862,7 @@ exports.notifyRecurringContracts = async (req, res) => {
       nextDeliveryDate: { $gt: now, $lt: in3Days }
     });
     
+    console.log(`Found ${upcomingDeliveries.length} recurring contracts with upcoming deliveries`);
     let notificationCount = 0;
     
     for (const contract of upcomingDeliveries) {
@@ -832,7 +877,8 @@ exports.notifyRecurringContracts = async (req, res) => {
         {
           referenceId: contract._id,
           daysUntilDelivery
-        }
+        },
+        req
       );
       
       // If contract is fulfilled, also notify the farmer
@@ -844,7 +890,8 @@ exports.notifyRecurringContracts = async (req, res) => {
           {
             referenceId: contract._id,
             daysUntilDelivery
-          }
+          },
+          req
         );
       }
       
@@ -887,7 +934,8 @@ exports.testFulfillmentNotification = async (req, res) => {
         farmerName: farmer ? farmer.username : 'Test Farmer',
         price: testPrice,
         productType: contract.productType
-      }
+      },
+      req
     );
     
     res.json({ success: true, message: 'Test notification sent' });
@@ -929,7 +977,8 @@ exports.debugNotificationSystem = async (req, res) => {
       {
         isDebugTest: true,
         timestamp: new Date().toISOString()
-      }
+      },
+      req
     );
     
     res.json({
