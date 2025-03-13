@@ -6,8 +6,20 @@ const {
   PRIORITY_LEVELS,
   DELIVERY_CHANNELS
 } = require('../models/Notification');
-const { User } = require('../models/User');
+const User = require('../models/User');
 const Auction = require('../models/Auction');
+const OpenContract = require('../models/OpenContract');
+const Transaction = require('../models/Transaction');
+const mongoose = require('mongoose');
+
+// High-priority notification types that should always send emails
+const HIGH_PRIORITY_NOTIFICATIONS = [
+  NOTIFICATION_TYPES.PAYMENT_FAILED,
+  NOTIFICATION_TYPES.AUCTION_WON,
+  NOTIFICATION_TYPES.PAYMENT_SUCCESSFUL,
+  NOTIFICATION_TYPES.CONTRACT_ACCEPTED,
+  NOTIFICATION_TYPES.RECURRING_PAYMENT_REMINDER
+];
 
 // Notification type configuration
 const NOTIFICATION_CONFIG = {
@@ -63,6 +75,77 @@ const NOTIFICATION_CONFIG = {
     }
   },
 
+  // Payment Notifications
+  [NOTIFICATION_TYPES.PAYMENT_SUCCESSFUL]: {
+    channels: [DELIVERY_CHANNELS.IN_APP, DELIVERY_CHANNELS.EMAIL],
+    priority: PRIORITY_LEVELS.HIGH,
+    template: async (referenceId) => {
+      const transaction = await Transaction.findById(referenceId);
+      return {
+        title: 'Payment Successful',
+        message: `Your payment of $${transaction.amount.toFixed(2)} has been processed successfully.`,
+        action: {
+          type: 'link',
+          text: 'View Details',
+          url: `/transactions/${referenceId}`
+        }
+      };
+    }
+  },
+
+  [NOTIFICATION_TYPES.PAYMENT_FAILED]: {
+    channels: [DELIVERY_CHANNELS.IN_APP, DELIVERY_CHANNELS.EMAIL, DELIVERY_CHANNELS.SMS],
+    priority: PRIORITY_LEVELS.URGENT,
+    template: async (referenceId) => {
+      const transaction = await Transaction.findById(referenceId);
+      return {
+        title: 'Payment Failed - Action Required',
+        message: `Your payment of $${transaction.amount.toFixed(2)} could not be processed. Please update your payment method.`,
+        action: {
+          type: 'link',
+          text: 'Update Payment Method',
+          url: `/payment-settings`
+        }
+      };
+    }
+  },
+
+  // Contract Notifications
+  [NOTIFICATION_TYPES.CONTRACT_ACCEPTED]: {
+    channels: [DELIVERY_CHANNELS.IN_APP, DELIVERY_CHANNELS.EMAIL],
+    priority: PRIORITY_LEVELS.HIGH,
+    template: async (referenceId) => {
+      const contract = await OpenContract.findById(referenceId)
+        .populate('seller', 'username');
+      return {
+        title: 'Contract Accepted',
+        message: `Your contract for ${contract.productType} has been accepted by ${contract.seller.username}.`,
+        action: {
+          type: 'link',
+          text: 'View Contract',
+          url: `/contracts/${referenceId}`
+        }
+      };
+    }
+  },
+
+  [NOTIFICATION_TYPES.RECURRING_PAYMENT_REMINDER]: {
+    channels: [DELIVERY_CHANNELS.IN_APP, DELIVERY_CHANNELS.EMAIL],
+    priority: PRIORITY_LEVELS.HIGH,
+    template: async (referenceId, data) => {
+      const contract = await OpenContract.findById(referenceId);
+      const daysUntilPayment = data?.daysUntilPayment || 3;
+      return {
+        title: 'Upcoming Recurring Payment',
+        message: `Your recurring payment of $${contract.recurringDetails.amount.toFixed(2)} for ${contract.productType} will be processed in ${daysUntilPayment} days.`,
+        action: {
+          type: 'link',
+          text: 'View Contract',
+          url: `/contracts/${referenceId}`
+        }
+      };
+    }
+  },
 
   // System Notifications
   [NOTIFICATION_TYPES.SYSTEM_MAINTENANCE]: {
@@ -94,7 +177,7 @@ const NOTIFICATION_CONFIG = {
 // Controller Methods
 exports.createNotification = async (req, res) => {
   try {
-    const { type, reference } = req.body;
+    const { type, reference, data } = req.body;
     const userId = req.user.id;
 
     // Validate notification type
@@ -102,11 +185,15 @@ exports.createNotification = async (req, res) => {
       return res.status(400).json({ error: 'Invalid notification type' });
     }
 
-    // Validate reference exists
+    // Validate reference exists if provided
     if (reference) {
-      const model = mongoose.model(reference.model);
-      const exists = await model.exists({ _id: reference.id });
-      if (!exists) return res.status(404).json({ error: 'Reference not found' });
+      try {
+        const model = mongoose.model(reference.model);
+        const exists = await model.exists({ _id: reference.id });
+        if (!exists) return res.status(404).json({ error: 'Reference not found' });
+      } catch (err) {
+        return res.status(400).json({ error: 'Invalid reference model' });
+      }
     }
 
     // Get configuration
@@ -114,7 +201,10 @@ exports.createNotification = async (req, res) => {
     if (!config) return res.status(400).json({ error: 'Unsupported notification type' });
 
     // Generate content
-    const templateData = await config.template(reference?.id);
+    const templateData = await config.template(reference?.id, data);
+    
+    // Determine if this is a high-priority notification
+    const isHighPriority = HIGH_PRIORITY_NOTIFICATIONS.includes(type);
     
     // Create notification
     const notification = await notificationService.createAndSendNotification(
@@ -123,9 +213,10 @@ exports.createNotification = async (req, res) => {
         ...templateData,
         type,
         category: type.split('_')[0].toUpperCase(),
-        priority: config.priority,
+        priority: isHighPriority ? PRIORITY_LEVELS.HIGH : config.priority,
         channels: config.channels,
-        reference
+        reference,
+        metadata: data
       },
       req.app.get('io')
     );
@@ -139,7 +230,7 @@ exports.createNotification = async (req, res) => {
 
 exports.getNotifications = async (req, res) => {
   try {
-    const { status, category } = req.query;
+    const { status, category, limit = 20, page = 1 } = req.query;
     const userId = req.user.id;
 
     const query = { user: userId };
@@ -147,12 +238,26 @@ exports.getNotifications = async (req, res) => {
     if (status === 'unread') query['status.read'] = false;
     if (category) query.category = category;
 
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
     const notifications = await NotificationModel.find(query)
       .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
       .populate('reference.id')
       .lean();
+    
+    const total = await NotificationModel.countDocuments(query);
 
-    res.json(notifications);
+    res.json({
+      notifications,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        pages: Math.ceil(total / parseInt(limit))
+      }
+    });
   } catch (error) {
     console.error('Error fetching notifications:', error);
     res.status(500).json({ error: error.message });
@@ -204,10 +309,174 @@ exports.markAllAsRead = async (req, res) => {
   }
 };
 
+// Delete a single notification
+exports.deleteNotification = async (req, res) => {
+  try {
+    const notification = await NotificationModel.findById(req.params.notificationId);
+    
+    if (!notification) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+    
+    if (notification.user.toString() !== req.user.id.toString()) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    
+    await notification.deleteOne();
+    
+    // Emit real-time update
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`user_${req.user.id}`).emit('notificationUpdate', {
+        action: 'delete',
+        notificationId: req.params.notificationId
+      });
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting notification:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Delete all notifications for a user
+exports.deleteAllNotifications = async (req, res) => {
+  try {
+    const { category } = req.query;
+    const query = { user: req.user.id };
+    
+    if (category) {
+      query.category = category;
+    }
+    
+    const result = await NotificationModel.deleteMany(query);
+    
+    // Emit real-time update
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`user_${req.user.id}`).emit('notificationUpdate', {
+        action: 'deleteAll',
+        category: category || 'all'
+      });
+    }
+    
+    res.json({ 
+      success: true, 
+      deleted: result.deletedCount 
+    });
+  } catch (error) {
+    console.error('Error deleting all notifications:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get unread notification count
+exports.getUnreadCount = async (req, res) => {
+  try {
+    const counts = await NotificationModel.aggregate([
+      { $match: { user: mongoose.Types.ObjectId(req.user.id), 'status.read': false } },
+      { $group: { _id: '$category', count: { $sum: 1 } } },
+      { $project: { category: '$_id', count: 1, _id: 0 } }
+    ]);
+    
+    // Calculate total count
+    const total = counts.reduce((sum, item) => sum + item.count, 0);
+    
+    // Format response
+    const result = {
+      total,
+      byCategory: {}
+    };
+    
+    counts.forEach(item => {
+      result.byCategory[item.category] = item.count;
+    });
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Error getting unread count:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get notifications by batch (for initial load and pagination)
+exports.getBatchNotifications = async (req, res) => {
+  try {
+    const { 
+      status = 'all', 
+      category, 
+      limit = 20, 
+      before, 
+      after 
+    } = req.query;
+    
+    const userId = req.user.id;
+    const query = { user: userId };
+    
+    // Filter by status
+    if (status === 'read') query['status.read'] = true;
+    if (status === 'unread') query['status.read'] = false;
+    
+    // Filter by category
+    if (category) query.category = category;
+    
+    // Pagination using createdAt timestamps
+    if (before) {
+      query.createdAt = { $lt: new Date(before) };
+    } else if (after) {
+      query.createdAt = { $gt: new Date(after) };
+    }
+    
+    const notifications = await NotificationModel.find(query)
+      .sort({ createdAt: before ? -1 : 1 })
+      .limit(parseInt(limit))
+      .populate('reference.id')
+      .lean();
+    
+    // If we're paginating forward, reverse the results to maintain chronological order
+    if (after) {
+      notifications.reverse();
+    }
+    
+    // Get the total count for the query (without pagination)
+    const total = await NotificationModel.countDocuments({
+      user: userId,
+      ...(status === 'read' ? { 'status.read': true } : {}),
+      ...(status === 'unread' ? { 'status.read': false } : {}),
+      ...(category ? { category } : {})
+    });
+    
+    res.json({
+      notifications,
+      pagination: {
+        total,
+        hasMore: notifications.length === parseInt(limit),
+        nextCursor: notifications.length > 0 ? 
+          (before ? notifications[notifications.length - 1].createdAt : notifications[0].createdAt) : 
+          null
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching batch notifications:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 exports.getNotificationPreferences = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('notificationPreferences');
-    res.json(user.notificationPreferences || {});
+    res.json(user.notificationPreferences || {
+      emailEnabled: true,
+      smsEnabled: false,
+      pushEnabled: false,
+      categories: {
+        auction: true,
+        payment: true,
+        contract: true,
+        system: true
+      }
+    });
   } catch (error) {
     console.error('Error getting preferences:', error);
     res.status(500).json({ error: error.message });
@@ -225,6 +494,38 @@ exports.updateNotificationPreferences = async (req, res) => {
     res.json(user.notificationPreferences);
   } catch (error) {
     console.error('Error updating preferences:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Send a test notification (for development purposes)
+exports.sendTestNotification = async (req, res) => {
+  try {
+    const { type } = req.body;
+    const userId = req.user.id;
+    
+    if (!type || !NOTIFICATION_TYPES[type]) {
+      return res.status(400).json({ error: 'Invalid notification type' });
+    }
+    
+    // Create a test notification
+    const notification = await notificationService.sendNotification({
+      recipient: userId,
+      type: type,
+      title: `Test ${type.replace(/_/g, ' ')}`,
+      message: `This is a test ${type.replace(/_/g, ' ')} notification.`,
+      data: {
+        isTest: true,
+        timestamp: new Date().toISOString(),
+        actionUrl: '/notifications'
+      },
+      priority: HIGH_PRIORITY_NOTIFICATIONS.includes(type) ? 
+        PRIORITY_LEVELS.HIGH : PRIORITY_LEVELS.MEDIUM
+    });
+    
+    res.json({ success: true, notification });
+  } catch (error) {
+    console.error('Error sending test notification:', error);
     res.status(500).json({ error: error.message });
   }
 };

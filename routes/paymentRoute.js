@@ -12,6 +12,9 @@ const {
     createPayoutForAuction 
 } = require('../controllers/payController');
 
+// Import the recurring payment controller
+const recurringPaymentController = require('../controllers/recurringPaymentController');
+
 // Register the connected account route first
 router.post('/create-connected-account', authMiddleware, createConnectedAccount);
 
@@ -119,10 +122,23 @@ router.get("/transaction/:transactionId", authMiddleware, async (req, res) => {
   }
 });
 
+// Existing payment routes
 router.post('/add-bank-account', authMiddleware, addBankAccount);
 router.get('/balance', authMiddleware, getSellerBalance);
 router.get('/transfers', authMiddleware, getSellerTransfers);
 router.post('/request-payout', authMiddleware, requestPayout);
 router.post('/create-payout-for-auction', authMiddleware, createPayoutForAuction);
+
+// New recurring payment routes
+router.get('/methods', authMiddleware, recurringPaymentController.getPaymentMethods);
+router.post('/methods', authMiddleware, recurringPaymentController.addPaymentMethod);
+router.delete('/methods/:paymentMethodId', authMiddleware, recurringPaymentController.removePaymentMethod);
+router.put('/methods/:paymentMethodId/default', authMiddleware, recurringPaymentController.setDefaultPaymentMethod);
+
+router.get('/recurring-settings', authMiddleware, recurringPaymentController.getRecurringPaymentSettings);
+router.put('/recurring-settings', authMiddleware, recurringPaymentController.updateRecurringPaymentSettings);
+
+router.get('/contracts/:contractId/recurring-settings', authMiddleware, recurringPaymentController.getContractRecurringPaymentSettings);
+router.put('/contracts/:contractId/recurring-settings', authMiddleware, recurringPaymentController.updateContractRecurringPaymentSettings);
 
 module.exports = router;

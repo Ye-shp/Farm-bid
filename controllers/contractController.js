@@ -74,6 +74,53 @@ async function notifyRelevantFarmers(contract) {
   }
 }
 
+// Helper function to calculate next delivery date based on frequency
+function calculateNextDeliveryDate(startDate, frequency) {
+  const date = new Date(startDate);
+  
+  switch (frequency) {
+    case 'weekly':
+      date.setDate(date.getDate() + 7);
+      break;
+    case 'biweekly':
+      date.setDate(date.getDate() + 14);
+      break;
+    case 'monthly':
+      date.setMonth(date.getMonth() + 1);
+      break;
+    case 'quarterly':
+      date.setMonth(date.getMonth() + 3);
+      break;
+    default:
+      return null;
+  }
+  
+  return date;
+}
+
+// Helper function to generate recurring instances
+function generateRecurringInstances(startDate, endDate, frequency) {
+  const instances = [];
+  let currentDate = new Date(startDate);
+  let instanceNumber = 1;
+  
+  while (currentDate < new Date(endDate)) {
+    const instanceEndDate = calculateNextDeliveryDate(currentDate, frequency);
+    
+    instances.push({
+      instanceNumber,
+      startDate: new Date(currentDate),
+      endDate: instanceEndDate,
+      status: instanceNumber === 1 ? 'active' : 'scheduled'
+    });
+    
+    currentDate = new Date(instanceEndDate);
+    instanceNumber++;
+  }
+  
+  return instances;
+}
+
 // Create a new open contract
 exports.createOpenContract = async (req, res) => {
   try {
@@ -84,7 +131,10 @@ exports.createOpenContract = async (req, res) => {
       maxPrice, 
       endTime,
       deliveryMethod,
-      deliveryAddress 
+      deliveryAddress,
+      isRecurring,
+      recurringFrequency,
+      recurringEndDate
     } = req.body;
 
     // Validate required fields
@@ -98,54 +148,78 @@ exports.createOpenContract = async (req, res) => {
     if (quantity <= 0) {
       return res.status(400).json({ error: 'Quantity must be greater than 0.' });
     }
+
     if (maxPrice <= 0) {
-      return res.status(400).json({ error: 'Maximum price must be greater than 0.' });
+      return res.status(400).json({ error: 'Max price must be greater than 0.' });
     }
 
     // Validate end time
     const endTimeDate = new Date(endTime);
-    const now = new Date();
-    if (endTimeDate <= now) {
+    if (endTimeDate <= new Date()) {
       return res.status(400).json({ error: 'End time must be in the future.' });
     }
 
-    // Validate delivery method if provided
-    const validDeliveryMethods = ['buyer_pickup', 'farmer_delivery', 'third_party'];
-    if (deliveryMethod && !validDeliveryMethods.includes(deliveryMethod)) {
-      return res.status(400).json({ error: 'Invalid delivery method. Must be one of: buyer_pickup, farmer_delivery, or third_party.' });
+    // Validate recurring contract fields if applicable
+    if (isRecurring) {
+      if (!recurringFrequency) {
+        return res.status(400).json({ error: 'Recurring frequency is required for recurring contracts.' });
+      }
+      
+      if (!recurringEndDate) {
+        return res.status(400).json({ error: 'Recurring end date is required for recurring contracts.' });
+      }
+      
+      const recurringEndDateObj = new Date(recurringEndDate);
+      if (recurringEndDateObj <= endTimeDate) {
+        return res.status(400).json({ error: 'Recurring end date must be after the initial contract end time.' });
+      }
     }
 
-    // Validate delivery address if not buyer pickup
-    if (deliveryMethod !== 'buyer_pickup' && (!deliveryAddress || !deliveryAddress.street || !deliveryAddress.city || !deliveryAddress.state || !deliveryAddress.zipCode)) {
-      return res.status(400).json({ error: 'Complete delivery address is required for farmer delivery or third party delivery.' });
-    }
-
-    const newContract = new OpenContract({
-      buyer: req.user.id,
+    // Create contract object
+    const contractData = {
+      buyer: req.user._id,
       productType,
       productCategory,
       quantity,
       maxPrice,
       endTime: endTimeDate,
-      status: 'open',
-      deliveryMethod: deliveryMethod || 'buyer_pickup',
-      deliveryAddress: deliveryMethod !== 'buyer_pickup' ? deliveryAddress : null,
-      fulfillments: [],
-      notifiedFarmers: [],
-      paymentStatus: 'pending'
-    });
+      deliveryMethod,
+      deliveryAddress: deliveryMethod !== 'buyer_pickup' ? deliveryAddress : undefined,
+      isRecurring: isRecurring || false
+    };
 
-    await newContract.save();
-    
-    // Notify relevant farmers about the new contract
-    await notifyRelevantFarmers(newContract);
+    // Add recurring contract fields if applicable
+    if (isRecurring) {
+      contractData.recurringFrequency = recurringFrequency;
+      contractData.recurringEndDate = new Date(recurringEndDate);
+      contractData.nextDeliveryDate = calculateNextDeliveryDate(endTimeDate, recurringFrequency);
+      contractData.recurringInstances = generateRecurringInstances(
+        endTimeDate, 
+        recurringEndDate, 
+        recurringFrequency
+      );
+    }
 
-    res.status(201).json(newContract);
-  } catch (err) {
-    console.error('Contract creation error:', err);
-    res.status(500).json({ 
-      error: err.message || 'An error occurred while creating the contract.' 
+    const contract = new OpenContract(contractData);
+    await contract.save();
+
+    // Notify relevant farmers
+    await notifyRelevantFarmers(contract);
+
+    // Create notification for buyer
+    await createNotification(
+      req.user._id,
+      `Your contract for ${quantity} units of ${productType} has been created successfully.`,
+      'contract'
+    );
+
+    res.status(201).json({
+      message: 'Contract created successfully',
+      contract
     });
+  } catch (error) {
+    console.error('Error creating contract:', error);
+    res.status(500).json({ error: 'Failed to create contract. Please try again.' });
   }
 };
 

@@ -54,6 +54,22 @@ const TransactionSchema = new mongoose.Schema({
     ],
     default: 'pending'
   },
+  // Recurring payment fields
+  isRecurring: {
+    type: Boolean,
+    default: false
+  },
+  parentContractId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'OpenContract'
+  },
+  recurringInstance: {
+    instanceNumber: Number,
+    isAutomatic: {
+      type: Boolean,
+      default: false
+    }
+  },
   paymentIntent: {
     stripeId: String,
     status: String,
@@ -100,22 +116,29 @@ const TransactionSchema = new mongoose.Schema({
       default: Date.now 
     }
   }],
-  metadata: {
-    type: Map,
-    of: String
-  },
+  // For contract transactions
   contractId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Contract',
-    required: function() {
-      return this.sourceType === 'contract';
-    }
+    ref: 'OpenContract'
   },
   fulfillmentId: {
+    type: mongoose.Schema.Types.ObjectId
+  },
+  // For auction transactions
+  auctionId: {
     type: mongoose.Schema.Types.ObjectId,
-    required: function() {
-      return this.sourceType === 'contract';
-    }
+    ref: 'Auction'
+  },
+  bidId: {
+    type: mongoose.Schema.Types.ObjectId
+  },
+  // Timestamps
+  createdAt: { 
+    type: Date, 
+    default: Date.now 
+  },
+  updatedAt: { 
+    type: Date 
   }
 }, {
   timestamps: true
@@ -127,36 +150,70 @@ TransactionSchema.index({ seller: 1, status: 1 });
 TransactionSchema.index({ 'paymentIntent.stripeId': 1 });
 TransactionSchema.index({ sourceType: 1, sourceId: 1 });
 
-// Instance methods
+// Pre-save hook to update the updatedAt field
+TransactionSchema.pre('save', function(next) {
+  this.updatedAt = new Date();
+  next();
+});
+
+// Method to update payment status
 TransactionSchema.methods.updatePaymentStatus = async function(status, error = null) {
   this.paymentIntent.status = status;
-  this.paymentIntent.attempts.push({
-    timestamp: new Date(),
-    status,
-    error: error?.message
-  });
-  this.paymentIntent.lastAttempt = new Date();
   
-  // Update transaction status based on payment status
-  switch(status) {
-    case 'succeeded':
-      this.status = 'payment_held';
-      break;
-    case 'failed':
-      this.status = 'failed';
-      break;
-    case 'processing':
-      this.status = 'processing';
-      break;
+  // Add attempt to history
+  if (!this.paymentIntent.attempts) {
+    this.paymentIntent.attempts = [];
   }
   
-  return this.save();
+  const attempt = {
+    timestamp: new Date(),
+    status: status
+  };
+  
+  if (error) {
+    attempt.error = typeof error === 'string' ? error : JSON.stringify(error);
+  }
+  
+  this.paymentIntent.attempts.push(attempt);
+  this.paymentIntent.lastAttempt = new Date();
+  
+  // Update overall transaction status
+  if (status === 'succeeded') {
+    this.status = 'payment_held';
+  } else if (status === 'failed') {
+    this.status = 'failed';
+  }
+  
+  await this.save();
+  return this;
 };
 
+// Method to calculate payout amount (after fees)
 TransactionSchema.methods.calculatePayoutAmount = function() {
-  const platformFee = this.fees.platform;
-  const processingFee = this.fees.processing;
-  return this.amount - platformFee - processingFee;
+  const totalFees = this.fees.platform + this.fees.processing;
+  return this.amount - totalFees;
+};
+
+// Method to mark transaction as completed
+TransactionSchema.methods.markAsCompleted = async function() {
+  this.status = 'completed';
+  await this.save();
+  return this;
+};
+
+// Method to mark transaction as disputed
+TransactionSchema.methods.markAsDisputed = async function(reason) {
+  this.status = 'disputed';
+  this.disputeReason = reason;
+  await this.save();
+  return this;
+};
+
+// Method to mark transaction as refunded
+TransactionSchema.methods.markAsRefunded = async function() {
+  this.status = 'refunded';
+  await this.save();
+  return this;
 };
 
 // Static methods

@@ -28,6 +28,59 @@ const openContractSchema = new mongoose.Schema({
     type: Date,
     required: true
   },
+  isRecurring: {
+    type: Boolean,
+    default: false
+  },
+  recurringFrequency: {
+    type: String,
+    enum: ['weekly', 'biweekly', 'monthly', 'quarterly'],
+    required: function() { return this.isRecurring; }
+  },
+  recurringEndDate: {
+    type: Date,
+    required: function() { return this.isRecurring; }
+  },
+  nextDeliveryDate: {
+    type: Date
+  },
+  recurringInstances: [{
+    instanceNumber: Number,
+    startDate: Date,
+    endDate: Date,
+    status: {
+      type: String,
+      enum: ['scheduled', 'active', 'fulfilled', 'completed', 'cancelled'],
+      default: 'scheduled'
+    },
+    fulfillmentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'OpenContract'
+    }
+  }],
+  // Recurring payment settings
+  recurringPaymentSettings: {
+    autoPayEnabled: {
+      type: Boolean,
+      default: false
+    },
+    paymentMethodId: {
+      type: String
+    },
+    notifyBeforeCharge: {
+      type: Boolean,
+      default: true
+    },
+    notificationDays: {
+      type: Number,
+      default: 3
+    }
+  },
+  // Parent contract reference (for recurring instances)
+  parentContract: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'OpenContract'
+  },
   status: {
     type: String,
     enum: ['open', 'fulfilled', 'completed', 'cancelled'],
