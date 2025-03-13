@@ -27,7 +27,9 @@ const sendInApp = (io, userId, notification) => {
   console.log(`Attempting to send in-app notification to user ${userId}`);
   if (io) {
     console.log(`Socket.io instance found, sending to room: user_${userId}`);
+    // Emit both event types to ensure compatibility with all frontend components
     io.to(`user_${userId}`).emit('notification', notification);
+    io.to(`user_${userId}`).emit('notificationUpdate', notification);
     return { success: true };
   } else {
     console.log('No Socket.io instance available');

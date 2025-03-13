@@ -69,7 +69,9 @@ async function createNotification(userId, message, type, metadata = {}, req = nu
     // Emit the notification via socket.io
     if (io) {
       console.log(`Emitting notification to user_${userId}`);
+      // Emit both event types to ensure compatibility with all frontend components
       io.to(`user_${userId}`).emit('notificationUpdate', notification);
+      io.to(`user_${userId}`).emit('notification', notification);
     } else {
       console.warn('No socket.io instance available, notification will not be delivered in real-time');
     }
