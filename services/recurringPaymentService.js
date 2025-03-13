@@ -925,11 +925,6 @@ module.exports = {
   updateRecurringPaymentSettings,
   updateContractRecurringPaymentSettings,
   processAutomaticPayment,
-  sendPaymentReminders,
-  processRecurringPayments,
-  processContractPayment,
   calculateNextPaymentDate,
-  handleExpiringPaymentMethods,
-  handleFailedPayments,
-  checkContractRenewals
+  processContractPayment
 }; 
