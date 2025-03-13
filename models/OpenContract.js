@@ -6,6 +6,18 @@ const openContractSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  buyerLocation: {
+    coordinates: {
+      lat: Number,
+      lng: Number
+    },
+    address: {
+      street: String,
+      city: String,
+      state: String,
+      zipCode: String
+    }
+  },
   productType: {
     type: String,
     required: true
@@ -119,6 +131,18 @@ const openContractSchema = new mongoose.Schema({
       ref: 'User',
       required: true
     },
+    farmerLocation: {
+      coordinates: {
+        lat: Number,
+        lng: Number
+      },
+      address: {
+        street: String,
+        city: String,
+        state: String,
+        zipCode: String
+      }
+    },
     price: {
       type: Number,
       required: true,
@@ -155,6 +179,18 @@ const openContractSchema = new mongoose.Schema({
     farmer: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User'
+    },
+    farmerLocation: {
+      coordinates: {
+        lat: Number,
+        lng: Number
+      },
+      address: {
+        street: String,
+        city: String,
+        state: String,
+        zipCode: String
+      }
     },
     price: Number,
     deliveryMethod: String,

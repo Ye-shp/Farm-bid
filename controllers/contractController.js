@@ -205,9 +205,24 @@ exports.createOpenContract = async (req, res) => {
       }
     }
 
+    // Get buyer information including location
+    const buyer = await User.findById(req.user.id);
+    if (!buyer) {
+      return res.status(404).json({ error: 'Buyer not found' });
+    }
+
     // Create contract object
     const contractData = {
       buyer: req.user.id,
+      buyerLocation: {
+        coordinates: buyer.address.coordinates,
+        address: {
+          street: buyer.address.street,
+          city: buyer.address.city,
+          state: buyer.address.state,
+          zipCode: buyer.address.zipCode
+        }
+      },
       productType,
       productCategory,
       quantity,
@@ -259,7 +274,7 @@ exports.getOpenContracts = async (req, res) => {
     const contracts = await OpenContract.find({ 
       status: 'open',
       endTime: { $gt: new Date() }
-    }).populate('buyer', 'username location');
+    }).populate('buyer', 'username email address');
     res.json(contracts);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -299,9 +314,24 @@ exports.fulfillOpenContract = async (req, res) => {
       return res.status(400).json({ error: 'Price exceeds maximum allowed price' });
     }
 
+    // Get farmer details including location
+    const farmer = await User.findById(farmerId);
+    if (!farmer) {
+      return res.status(404).json({ error: 'Farmer not found' });
+    }
+
     // Add fulfillment
     contract.fulfillments.push({
       farmer: farmerId,
+      farmerLocation: {
+        coordinates: farmer.address.coordinates,
+        address: {
+          street: farmer.address.street,
+          city: farmer.address.city,
+          state: farmer.address.state,
+          zipCode: farmer.address.zipCode
+        }
+      },
       price,
       notes: notes || '',
       deliveryMethod,
@@ -311,9 +341,6 @@ exports.fulfillOpenContract = async (req, res) => {
     });
 
     await contract.save();
-
-    // Get farmer details for the notification
-    const farmer = await User.findById(farmerId);
 
     // Send notification to buyer
     await createNotification(
@@ -367,6 +394,7 @@ exports.acceptFulfillment = async (req, res) => {
     // Set winning fulfillment
     contract.winningFulfillment = {
       farmer: fulfillment.farmer,
+      farmerLocation: fulfillment.farmerLocation,
       price: fulfillment.price,
       deliveryMethod: fulfillment.deliveryMethod,
       deliveryFee: fulfillment.deliveryFee,
@@ -406,7 +434,7 @@ exports.acceptFulfillment = async (req, res) => {
 
     res.json(contract);
   } catch (error) {
-    console.error('Error in acceptFulfillment:', error);
+    console.error('Error accepting fulfillment:', error);
     res.status(500).json({ error: 'Failed to accept fulfillment', details: error.message });
   }
 };
@@ -473,8 +501,8 @@ exports.getUserContracts = async (req, res) => {
     let contracts;
 
     const populateOptions = [
-      { path: 'buyer', select: 'username email phone' },
-      { path: 'fulfillments.farmer', select: 'username email phone' }
+      { path: 'buyer', select: 'username email phone address' },
+      { path: 'fulfillments.farmer', select: 'username email phone address' }
     ];
 
     if (userRole === 'buyer') {
@@ -514,8 +542,8 @@ exports.getContractById = async (req, res) => {
     });
 
     const contract = await OpenContract.findById(req.params.contractId)
-      .populate('buyer', 'username email phone')
-      .populate('fulfillments.farmer', 'username email phone');
+      .populate('buyer', 'username email phone address')
+      .populate('fulfillments.farmer', 'username email phone address');
 
     if (!contract) {
       console.log('Contract not found:', req.params.contractId);
