@@ -88,6 +88,7 @@ const UserSchema = new mongoose.Schema({
 
   // Payment information
   stripeAccountId: { type: String },
+  stripeCustomerId: { type: String },
   paymentMethods: [{
     type: { type: String, enum: ['card', 'bank_account'] },
     isDefault: { type: Boolean, default: false },
@@ -97,6 +98,17 @@ const UserSchema = new mongoose.Schema({
     expiryYear: Number, // for cards
     stripePaymentMethodId: String
   }],
+  
+  // Payment settings for recurring contracts
+  recurringPaymentSettings: {
+    autoPayEnabled: { type: Boolean, default: false },
+    defaultPaymentMethodId: { type: String },
+    notificationPreferences: {
+      emailNotifications: { type: Boolean, default: true },
+      smsNotifications: { type: Boolean, default: false },
+      advanceNoticeDays: { type: Number, default: 3 }
+    }
+  },
   
   // Business verification status
   verification: {
