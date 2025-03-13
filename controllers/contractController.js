@@ -177,7 +177,7 @@ exports.createOpenContract = async (req, res) => {
 
     // Create contract object
     const contractData = {
-      buyer: req.user._id,
+      buyer: req.user.id,
       productType,
       productCategory,
       quantity,
@@ -208,7 +208,7 @@ exports.createOpenContract = async (req, res) => {
 
     // Create notification for buyer
     await createNotification(
-      req.user._id,
+      req.user.id,
       `Your contract for ${quantity} units of ${productType} has been created successfully.`,
       'contract'
     );
