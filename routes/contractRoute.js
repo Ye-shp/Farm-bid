@@ -10,7 +10,9 @@ const {
     getContractById,
     createContractPaymentIntent,
     handleContractPaymentSuccess,
-    handleContractPaymentFailure
+    handleContractPaymentFailure,
+    notifyExpiringContracts,
+    notifyRecurringContracts
 } = require('../controllers/contractController');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
@@ -45,5 +47,9 @@ router.post('/payment-success', authMiddleware, handleContractPaymentSuccess);
 
 // Handle contract payment failure 
 router.post('/payment-failure', authMiddleware, handleContractPaymentFailure);
+
+// Notification endpoints
+router.post('/notify-expiring', authMiddleware, notifyExpiringContracts);
+router.post('/notify-recurring', authMiddleware, notifyRecurringContracts);
 
 module.exports = router;

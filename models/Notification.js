@@ -12,7 +12,8 @@ const NOTIFICATION_CATEGORIES = {
   PAYMENT: 'payment',
   DELIVERY: 'delivery',
   SYSTEM: 'system',
-  USER: 'user'
+  USER: 'user',
+  CONTRACT: 'contract'
 };
 
 const NOTIFICATION_TYPES = {
@@ -41,7 +42,16 @@ const NOTIFICATION_TYPES = {
   
   // User related
   USER_WELCOME: 'user_welcome',
-  USER_VERIFICATION: 'user_verification'
+  USER_VERIFICATION: 'user_verification',
+  
+  // Contract related
+  CONTRACT_CREATED: 'contract_created',
+  CONTRACT_FULFILLMENT_OFFER: 'contract_fulfillment_offer',
+  CONTRACT_ACCEPTED: 'contract_accepted',
+  CONTRACT_COMPLETED: 'contract_completed',
+  CONTRACT_CANCELLED: 'contract_cancelled',
+  CONTRACT_EXPIRING: 'contract_expiring',
+  CONTRACT_RECURRING_REMINDER: 'contract_recurring_reminder'
 };
 
 
@@ -137,7 +147,7 @@ const NotificationSchema = new mongoose.Schema({
   reference: {
     model: {
       type: String,
-      enum: ['Auction', 'Transaction', 'Payment', 'User'],
+      enum: ['Auction', 'Transaction', 'Payment', 'User', 'OpenContract'],
       required: false
     },
     id: {

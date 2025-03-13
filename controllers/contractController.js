@@ -5,6 +5,7 @@ const {NotificationModel} = require('../models/Notification');
 const twilio = require('twilio');
 const Transaction = require('../models/Transaction');
 const Payout = require('../models/Payout');
+const { NOTIFICATION_TYPES } = require('../constants/notificationTypes');
 
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -13,12 +14,13 @@ const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
 const client = twilio(accountSid, authToken);
 
 // Helper function to create notifications
-async function createNotification(userId, message, type) {
+async function createNotification(userId, message, type, metadata = {}) {
   try {
     const notification = new NotificationModel({
       user: userId,
       message,
       type,
+      metadata
     });
     await notification.save();
     return notification;
@@ -210,7 +212,7 @@ exports.createOpenContract = async (req, res) => {
     await createNotification(
       req.user.id,
       `Your contract for ${quantity} units of ${productType} has been created successfully.`,
-      'contract'
+      NOTIFICATION_TYPES.CONTRACT_CREATED
     );
 
     res.status(201).json({
@@ -286,7 +288,11 @@ exports.fulfillOpenContract = async (req, res) => {
     await createNotification(
       contract.buyer,
       `New fulfillment offer received for contract: ${contract.productType}`,
-      'contract_fulfillment'
+      NOTIFICATION_TYPES.CONTRACT_FULFILLMENT_OFFER,
+      {
+        referenceId: contract._id,
+        fulfillmentId: contract.fulfillments[contract.fulfillments.length - 1]._id
+      }
     );
 
     res.json(contract);
@@ -342,7 +348,11 @@ exports.acceptFulfillment = async (req, res) => {
       await createNotification(
         farmer._id,
         `Your fulfillment offer for ${contract.productType} has been accepted!`,
-        'fulfillment_accepted'
+        NOTIFICATION_TYPES.CONTRACT_ACCEPTED,
+        {
+          referenceId: contract._id,
+          fulfillmentId: fulfillmentId
+        }
       );
 
       // Send SMS if phone number is available
@@ -407,7 +417,10 @@ exports.completeFulfillment = async (req, res) => {
     await createNotification(
       contract.buyer,
       `The contract for ${contract.productType} has been marked as completed by the farmer`,
-      'fulfillment_completed'
+      NOTIFICATION_TYPES.CONTRACT_COMPLETED,
+      {
+        referenceId: contract._id
+      }
     );
 
     res.json(contract);
@@ -638,7 +651,10 @@ exports.handleContractPaymentSuccess = async (req, res) => {
     await createNotification(
       transaction.seller,
       `Payment received for contract ${contract.productType}`,
-      'payment_received'
+      NOTIFICATION_TYPES.PAYMENT_SUCCESSFUL,
+      {
+        referenceId: transaction._id
+      }
     );
 
     res.json({ success: true });
@@ -669,7 +685,11 @@ exports.handleContractPaymentFailure = async (req, res) => {
     await createNotification(
       transaction.buyer,
       `Payment failed for contract. Please try again.`,
-      'payment_failed'
+      NOTIFICATION_TYPES.PAYMENT_FAILED,
+      {
+        referenceId: transaction._id,
+        error: error
+      }
     );
 
     res.json({ success: true });
@@ -677,5 +697,103 @@ exports.handleContractPaymentFailure = async (req, res) => {
   } catch (error) {
     console.error('Error handling payment failure:', error);
     res.status(500).json({ error: 'Failed to process payment failure' });
+  }
+};
+
+// Send notifications for contracts expiring soon
+exports.notifyExpiringContracts = async (req, res) => {
+  try {
+    const now = new Date();
+    const in24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    
+    // Find contracts expiring in the next 24 hours
+    const expiringContracts = await OpenContract.find({
+      status: 'open',
+      endTime: { $gt: now, $lt: in24Hours }
+    });
+    
+    let notificationCount = 0;
+    
+    for (const contract of expiringContracts) {
+      // Calculate hours remaining
+      const hoursRemaining = Math.round((contract.endTime - now) / (60 * 60 * 1000));
+      
+      // Send notification to the buyer
+      await createNotification(
+        contract.buyer,
+        `Your contract for ${contract.productType} will expire in ${hoursRemaining} hours.`,
+        NOTIFICATION_TYPES.CONTRACT_EXPIRING,
+        {
+          referenceId: contract._id,
+          hoursRemaining
+        }
+      );
+      
+      notificationCount++;
+    }
+    
+    res.json({ 
+      success: true, 
+      message: `Sent ${notificationCount} expiration notifications` 
+    });
+  } catch (error) {
+    console.error('Error sending expiration notifications:', error);
+    res.status(500).json({ error: 'Failed to send expiration notifications' });
+  }
+};
+
+// Send notifications for upcoming recurring contract deliveries
+exports.notifyRecurringContracts = async (req, res) => {
+  try {
+    const now = new Date();
+    const in3Days = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+    
+    // Find recurring contracts with next delivery in 3 days
+    const upcomingDeliveries = await OpenContract.find({
+      isRecurring: true,
+      status: { $in: ['open', 'fulfilled'] },
+      nextDeliveryDate: { $gt: now, $lt: in3Days }
+    });
+    
+    let notificationCount = 0;
+    
+    for (const contract of upcomingDeliveries) {
+      // Calculate days remaining
+      const daysUntilDelivery = Math.round((contract.nextDeliveryDate - now) / (24 * 60 * 60 * 1000));
+      
+      // Send notification to the buyer
+      await createNotification(
+        contract.buyer,
+        `Your recurring contract for ${contract.productType} has a scheduled delivery in ${daysUntilDelivery} days.`,
+        NOTIFICATION_TYPES.CONTRACT_RECURRING_REMINDER,
+        {
+          referenceId: contract._id,
+          daysUntilDelivery
+        }
+      );
+      
+      // If contract is fulfilled, also notify the farmer
+      if (contract.status === 'fulfilled' && contract.winningFulfillment?.farmer) {
+        await createNotification(
+          contract.winningFulfillment.farmer,
+          `Reminder: You have a scheduled delivery for ${contract.productType} in ${daysUntilDelivery} days.`,
+          NOTIFICATION_TYPES.CONTRACT_RECURRING_REMINDER,
+          {
+            referenceId: contract._id,
+            daysUntilDelivery
+          }
+        );
+      }
+      
+      notificationCount++;
+    }
+    
+    res.json({ 
+      success: true, 
+      message: `Sent ${notificationCount} recurring contract notifications` 
+    });
+  } catch (error) {
+    console.error('Error sending recurring contract notifications:', error);
+    res.status(500).json({ error: 'Failed to send recurring contract notifications' });
   }
 };
